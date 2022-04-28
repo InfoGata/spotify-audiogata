@@ -1,0 +1,22 @@
+{
+  "name": "spotify-audiogata",
+  "version": "1.0.0",
+  "description": "",
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "preact": "^10.7.1"
+  },
+  "scripts": {
+    "build": "parcel build src/index.ts src/options.html --dist-dir dist/ --no-source-maps",
+    "start": "parcel src/index.ts src/options.html --dist-dir dist/ --no-source-maps"
+  },
+  "devDependencies": {
+    "parcel": "^2.0.1",
+    "typescript": "^4.2.3"
+  },
+  "browserslist": [
+    "last 1 Chrome version"
+  ]
+}
