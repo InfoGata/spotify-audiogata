@@ -145,7 +145,8 @@ class SpotifyPlayer {
   private initializePlayer = () => {
     const player = new (window as any).Spotify.Player({
       getOAuthToken: async (cb: (arg0: string) => void) => {
-        cb(this.accessToken);
+        const accessToken = await refreshToken();
+        cb(accessToken);
       },
       name: "Web Playback SDK Quick Start Player",
     });
