@@ -11,7 +11,61 @@ import {
   ISpotifyAlbumResult,
   IPlaylist,
   Application,
+  ISpotifyPlaylistResult,
 } from "./types";
+import { CLIENT_ID, TOKEN_URL } from "./shared";
+
+const http = axios.create();
+
+const setTokens = (accessToken: string, refreshToken: string) => {
+  localStorage.setItem("access_token", accessToken);
+  localStorage.setItem("refresh_token", refreshToken);
+};
+
+const refreshToken = async () => {
+  const refreshToken = localStorage.getItem("refresh_token");
+  const params = new URLSearchParams();
+  params.append("grant_type", "refresh_token");
+  params.append("refresh_token", refreshToken);
+  params.append("client_id", CLIENT_ID);
+  const result = await axios.post(TOKEN_URL, params, {
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  });
+  if (result.data.access_token && result.data.refresh_token) {
+    setTokens(result.data.access_token, result.data.refresh_token);
+    return result.data.access_token as string;
+  }
+};
+
+http.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      config.headers["Authorization"] = "Bearer " + token;
+    }
+    return config;
+  },
+  (error) => {
+    Promise.reject(error);
+  }
+);
+
+http.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      const accessToken = await refreshToken();
+      axios.defaults.headers.common["Authorization"] = "Bearer " + accessToken;
+      return http(originalRequest);
+    }
+  }
+);
 
 declare var application: Application;
 
@@ -155,14 +209,13 @@ class SpotifyPlayer {
     const url = `${this.apiUrl}/me/player/play?device_id=${this.deviceId}`;
 
     const trackId = song.apiId || "";
-    await axios.put(
+    await http.put(
       url,
       {
         uris: [trackId],
       },
       {
         headers: {
-          Authorization: `Bearer ${this.accessToken}`,
           "Content-Type": "application/json",
         },
       }
@@ -175,12 +228,10 @@ class SpotifyPlayer {
       return;
     }
 
-    await fetch(`https://api.spotify.com/v1/me/player/pause`, {
+    await http.put(`https://api.spotify.com/v1/me/player/pause`, {
       headers: {
-        Authorization: `Bearer ${this.accessToken}`,
         "Content-Type": "application/json",
       },
-      method: "PUT",
     });
     if (this.interval) {
       clearInterval(this.interval);
@@ -192,14 +243,12 @@ class SpotifyPlayer {
       return;
     }
 
-    await fetch(
+    await http.put(
       `https://api.spotify.com/v1/me/player/play?device_id=${this.deviceId}`,
       {
         headers: {
-          Authorization: `Bearer ${this.accessToken}`,
           "Content-Type": "application/json",
         },
-        method: "PUT",
       }
     );
     this.interval = window.setInterval(this.updateTime, 1000);
@@ -210,31 +259,27 @@ class SpotifyPlayer {
       return;
     }
 
-    await fetch(
+    await http.put(
       `https://api.spotify.com/v1/me/player/seek?position_ms=${
         timeInSeconds * 1000
       }`,
       {
         headers: {
-          Authorization: `Bearer ${this.accessToken}`,
           "Content-Type": "application/json",
         },
-        method: "PUT",
       }
     );
   }
 
   public async setVolume(volume: number) {
-    await fetch(
+    await http.put(
       `https://api.spotify.com/v1/me/player/volume?volume_percent=${
         volume * 100
       }`,
       {
         headers: {
-          Authorization: `Bearer ${this.accessToken}`,
           "Content-Type": "application/json",
         },
-        method: "PUT",
       }
     );
   }
@@ -252,11 +297,7 @@ class SpotifyPlayer {
     const url = `${this.apiUrl}/search?q=${encodeURIComponent(
       query
     )}&type=album,artist,track`;
-    const results = await axios.get<ISpotifyResult>(url, {
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-      },
-    });
+    const results = await http.get<ISpotifyResult>(url);
     const data = results.data;
     const tracks = trackResultToSong(data.tracks.items);
     const albums = albumResultToAlbum(data.albums.items);
@@ -270,11 +311,7 @@ class SpotifyPlayer {
     }
     const id = album.apiId.split(":").pop();
     const url = `${this.apiUrl}/albums/${id}/tracks?limit=50`;
-    const results = await axios.get<ISpotifyTrackResult>(url, {
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-      },
-    });
+    const results = await http.get<ISpotifyTrackResult>(url);
     const tracks = trackResultToSong(results.data.items);
     tracks.forEach((t) => {
       t.albumId = album.apiId;
@@ -288,16 +325,23 @@ class SpotifyPlayer {
     }
     const id = artist.apiId.split(":").pop();
     const url = `${this.apiUrl}/artists/${id}/albums`;
-    const results = await axios.get<ISpotifyAlbumResult>(url, {
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-      },
-    });
+    const results = await http.get<ISpotifyAlbumResult>(url);
     return albumResultToAlbum(results.data.items);
   }
 
   public async getPlaylistTracks(_playlist: IPlaylist) {
     return [];
+  }
+
+  public async getUserPlaylists(): Promise<IPlaylist[]> {
+    const url = "https://api.spotify.com/v1/me/playlists";
+    const results = await http.get<ISpotifyPlaylistResult>(url);
+
+    return results.data.items.map((i) => ({
+      name: i.name,
+      images: i.images,
+      apiId: i.id,
+    }));
   }
 }
 
@@ -314,30 +358,35 @@ const setMethods = () => {
   application.resume = spotifyPlayer.resume.bind(spotifyPlayer);
   application.seek = spotifyPlayer.seek.bind(spotifyPlayer);
   application.setVolume = spotifyPlayer.setVolume.bind(spotifyPlayer);
+  application.getUserPlaylists =
+    spotifyPlayer.getUserPlaylists.bind(spotifyPlayer);
 };
 
 const init = () => {
-  const token = localStorage.getItem("access_token");
-  if (token) {
+  const accessToken = localStorage.getItem("access_token");
+  const refreshToken = localStorage.getItem("refresh_token");
+  if (accessToken && refreshToken) {
     application.postUiMessage({ type: "login" });
-    spotifyPlayer.setAccessToken(token);
+    spotifyPlayer.setAccessToken(accessToken);
     setMethods();
   }
 };
 
 application.onUiMessage = (message) => {
-  console.log("spotify: ", message);
   if (message === "init") {
+    const host = document.location.host;
+    const hostArray = host.split(".");
+    hostArray.shift();
+    const domain = hostArray.join(".");
+    const origin = `${document.location.protocol}//${domain}`;
+    console.log(origin);
     application.postUiMessage({
       type: "origin",
-      value: document.location.origin,
+      value: origin,
     });
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      application.postUiMessage({ type: "login" });
-    }
   } else if (message.access_token) {
-    localStorage.setItem("access_token", message.access_token);
+    console.log(message);
+    setTokens(message.access_token, message.refresh_token);
     spotifyPlayer.setAccessToken(message.access_token);
     setMethods();
   }

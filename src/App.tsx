@@ -1,6 +1,7 @@
 import axios from "axios";
 import { FunctionalComponent } from "preact";
 import { useState, useEffect } from "preact/hooks";
+import { TOKEN_URL, CLIENT_ID } from "./shared";
 
 function generateRandomString() {
   var array = new Uint32Array(28);
@@ -34,12 +35,11 @@ async function pkceChallengeFromVerifier(v) {
 }
 
 const authorizeUrl = "https://accounts.spotify.com/authorize";
-const tokenUrl = "https://accounts.spotify.com/api/token";
-const clientId = "b8f2fce4341b42e580e66a37302b358e";
-const redirectPath = "/audiogata/login_popup.html";
+const redirectPath = "/login_popup.html";
 const App: FunctionalComponent = () => {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [redirectUri, setRedirectUri] = useState("");
+  // const [clientId, setClientId] = useState("");
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -68,10 +68,10 @@ const App: FunctionalComponent = () => {
     const params = new URLSearchParams();
     params.append("grant_type", "authorization_code");
     params.append("code", code);
-    params.append("client_id", clientId);
+    params.append("client_id", CLIENT_ID);
     params.append("redirect_uri", redirectUri);
     params.append("code_verifier", codeVerifier);
-    const result = await axios.post(tokenUrl, params, {
+    const result = await axios.post(TOKEN_URL, params, {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
@@ -95,7 +95,7 @@ const App: FunctionalComponent = () => {
     };
     const scopes = "streaming user-read-email user-read-private";
     const url = `${authorizeUrl}?response_type=code&client_id=${encodeURIComponent(
-      clientId
+      CLIENT_ID
     )}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(
       scopes
     )}&redirect_uri=${encodeURIComponent(

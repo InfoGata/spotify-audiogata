@@ -30,7 +30,7 @@ export interface IArtist {
 export interface IPlaylist {
   id?: string;
   name: string;
-  songs: ISong[];
+  songs?: ISong[];
   apiId?: string;
   images?: IImage[];
   from?: string;
@@ -80,6 +80,20 @@ export interface ISpotifyTrack {
   artists: ISpotifyArtist[];
 }
 
+export interface ISpotifyPlaylistResult {
+  href: string;
+  limit: number;
+  offset: number;
+  total: number;
+  items: ISpotifyPlaylistItem[];
+}
+
+export interface ISpotifyPlaylistItem {
+  id: string;
+  images: IImage[];
+  name: string;
+}
+
 export interface Application {
   searchAll?: (query: string) => Promise<{
     tracks?: ISong[];
@@ -101,4 +115,5 @@ export interface Application {
   getAlbumTracks?: (album: IAlbum) => Promise<ISong[]>;
   getArtistAlbums?: (artist: IArtist) => Promise<IAlbum[]>;
   setPlaybackRate?: (rate: number) => Promise<void>;
+  getUserPlaylists?: () => Promise<IPlaylist[]>;
 }
