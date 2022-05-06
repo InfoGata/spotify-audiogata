@@ -12,6 +12,7 @@ import {
   IPlaylist,
   Application,
   ISpotifyPlaylistResult,
+  ISpotifyPlaylistTrackResult,
 } from "./types";
 import { CLIENT_ID, TOKEN_URL } from "./shared";
 
@@ -291,7 +292,6 @@ class SpotifyPlayer {
   };
 
   public async searchAll(query: string) {
-    console.log("start");
     if (!this.accessToken) {
       return { tracks: [], albums: [], artists: [] };
     }
@@ -330,8 +330,21 @@ class SpotifyPlayer {
     return albumResultToAlbum(results.data.items);
   }
 
-  public async getPlaylistTracks(_playlist: IPlaylist) {
-    return [];
+  public async getPlaylistTracks(playlist: IPlaylist): Promise<ISong[]> {
+    const url = `https://api.spotify.com/v1/playlists/${playlist.apiId}`;
+    const result = await http.get<ISpotifyPlaylistTrackResult>(url);
+
+    return result.data.tracks.items.map((t) => ({
+      albumId: t.track.album && t.track.album.uri,
+      apiId: t.track.uri,
+      artistId: t.track.artists[0].uri,
+      artistName: t.track.artists[0].name,
+      duration: t.track.duration_ms / 1000,
+      from: "spotify",
+      images: t.track.album.images,
+      name: t.track.name,
+      source: "",
+    }));
   }
 
   public async getUserPlaylists(): Promise<IPlaylist[]> {
@@ -361,6 +374,8 @@ const setMethods = () => {
   application.setVolume = spotifyPlayer.setVolume.bind(spotifyPlayer);
   application.getUserPlaylists =
     spotifyPlayer.getUserPlaylists.bind(spotifyPlayer);
+  application.getPlaylistTracks =
+    spotifyPlayer.getPlaylistTracks.bind(spotifyPlayer);
 };
 
 const init = () => {
@@ -380,7 +395,6 @@ application.onUiMessage = (message) => {
     hostArray.shift();
     const domain = hostArray.join(".");
     const origin = `${document.location.protocol}//${domain}`;
-    console.log(origin);
     application.postUiMessage({
       type: "origin",
       value: origin,

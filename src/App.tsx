@@ -39,7 +39,6 @@ const redirectPath = "/login_popup.html";
 const App: FunctionalComponent = () => {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [redirectUri, setRedirectUri] = useState("");
-  // const [clientId, setClientId] = useState("");
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {

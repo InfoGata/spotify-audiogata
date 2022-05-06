@@ -94,6 +94,24 @@ export interface ISpotifyPlaylistItem {
   name: string;
 }
 
+export interface ISpotifyPlaylistTrackResult {
+  images: IImage[];
+  name: string;
+  tracks: ISpotifyPlaylistTracks;
+}
+
+export interface ISpotifyPlaylistTracks {
+  items: ISpotifyPlaylistTrackItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ISpotifyPlaylistTrackItem {
+  is_local: boolean;
+  track: ISpotifyTrack;
+}
+
 export interface Application {
   searchAll?: (query: string) => Promise<{
     tracks?: ISong[];
