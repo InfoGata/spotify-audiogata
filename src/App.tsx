@@ -79,19 +79,9 @@ const App: FunctionalComponent = () => {
   }
 
   const pkce = async () => {
-    const newWindow = window.open();
     const state = generateRandomString();
     const codeVerifier = generateRandomString();
     const codeChallenge = await pkceChallengeFromVerifier(codeVerifier);
-    window.onmessage = async (event: MessageEvent) => {
-      if (event.source === newWindow) {
-        const url = new URL(event.data.url);
-        newWindow?.close();
-        const result = await getToken(url, state, codeVerifier);
-        window.parent.postMessage(result, "*");
-        setIsSignedIn(true);
-      }
-    };
     const scopes = "streaming user-read-email user-read-private";
     const url = `${authorizeUrl}?response_type=code&client_id=${encodeURIComponent(
       CLIENT_ID
@@ -102,9 +92,23 @@ const App: FunctionalComponent = () => {
     )}&code_challenge=${encodeURIComponent(
       codeChallenge
     )}&code_challenge_method=S256`;
-    if (newWindow) {
-      newWindow.location.href = url;
-    }
+    const newWindow = window.open(url);
+    const onMessage = async (returnUrl: string) => {
+      const url = new URL(returnUrl);
+      newWindow?.close();
+      const result = await getToken(url, state, codeVerifier);
+      window.parent.postMessage(result, "*");
+      setIsSignedIn(true);
+    };
+    window.onmessage = async (event: MessageEvent) => {
+      if (event.source === newWindow) {
+        await onMessage(event.data.url);
+      } else {
+        if (event.data.type === "deeplink") {
+          await onMessage(event.data.url);
+        }
+      }
+    };
   };
 
   const onLogin = async () => {

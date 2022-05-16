@@ -388,6 +388,10 @@ const init = () => {
   }
 };
 
+application.onDeepLinkMessage = async (message: string) => {
+  application.postUiMessage({ type: "deeplink", url: message });
+};
+
 application.onUiMessage = (message) => {
   if (message === "init") {
     const host = document.location.host;

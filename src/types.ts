@@ -122,6 +122,7 @@ export interface Application {
   getTrackUrl?: (song: ISong) => Promise<void>;
   getPlaylistTracks?: (playlist: IPlaylist) => Promise<void>;
   postUiMessage: (msg: any) => Promise<void>;
+  onDeepLinkMessage: (message: string) => Promise<void>;
   onUiMessage?: (message: any) => void;
   endTrack: () => Promise<void>;
   setTrackTime: (currentTime: number) => Promise<void>;
@@ -134,4 +135,5 @@ export interface Application {
   getArtistAlbums?: (artist: IArtist) => Promise<IAlbum[]>;
   setPlaybackRate?: (rate: number) => Promise<void>;
   getUserPlaylists?: () => Promise<IPlaylist[]>;
+  getPluginId: () => Promise<string>;
 }
