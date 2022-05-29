@@ -1,19 +1,5 @@
 import axios from "axios";
-import {
-  ISpotifyTrack,
-  ISong,
-  ISpotifyArtist,
-  IArtist,
-  ISpotifyAlbum,
-  IAlbum,
-  ISpotifyResult,
-  ISpotifyTrackResult,
-  ISpotifyAlbumResult,
-  IPlaylist,
-  Application,
-  ISpotifyPlaylistResult,
-  ISpotifyPlaylistTrackResult,
-} from "./types";
+import { ISong, IArtist, IAlbum, IPlaylist, Application } from "./types";
 import { CLIENT_ID, TOKEN_URL } from "./shared";
 
 const http = axios.create();
@@ -80,7 +66,7 @@ interface WebPlaybackError {
   message: WebPlaybackErrors;
 }
 
-function trackResultToSong(results: ISpotifyTrack[]): ISong[] {
+function trackResultToSong(results: SpotifyApi.TrackObjectFull[]): ISong[] {
   return results.map(
     (r) =>
       ({
@@ -96,7 +82,9 @@ function trackResultToSong(results: ISpotifyTrack[]): ISong[] {
   );
 }
 
-function artistResultToArtist(results: ISpotifyArtist[]): IArtist[] {
+function artistResultToArtist(
+  results: SpotifyApi.ArtistObjectFull[]
+): IArtist[] {
   return results.map(
     (r) =>
       ({
@@ -107,7 +95,9 @@ function artistResultToArtist(results: ISpotifyArtist[]): IArtist[] {
   );
 }
 
-function albumResultToAlbum(results: ISpotifyAlbum[]): IAlbum[] {
+function albumResultToAlbum(
+  results: SpotifyApi.AlbumObjectSimplified[]
+): IAlbum[] {
   return results.map(
     (r) =>
       ({
@@ -298,7 +288,7 @@ class SpotifyPlayer {
     const url = `${this.apiUrl}/search?q=${encodeURIComponent(
       query
     )}&type=album,artist,track`;
-    const results = await http.get<ISpotifyResult>(url);
+    const results = await http.get<SpotifyApi.SearchResponse>(url);
     const data = results.data;
     const tracks = trackResultToSong(data.tracks.items);
     const albums = albumResultToAlbum(data.albums.items);
@@ -312,8 +302,8 @@ class SpotifyPlayer {
     }
     const id = album.apiId.split(":").pop();
     const url = `${this.apiUrl}/albums/${id}/tracks?limit=50`;
-    const results = await http.get<ISpotifyTrackResult>(url);
-    const tracks = trackResultToSong(results.data.items);
+    const results = await http.get<SpotifyApi.AlbumTracksResponse>(url);
+    const tracks = trackResultToSong(results.data.items as any);
     tracks.forEach((t) => {
       t.albumId = album.apiId;
     });
@@ -326,13 +316,13 @@ class SpotifyPlayer {
     }
     const id = artist.apiId.split(":").pop();
     const url = `${this.apiUrl}/artists/${id}/albums`;
-    const results = await http.get<ISpotifyAlbumResult>(url);
+    const results = await http.get<SpotifyApi.ArtistsAlbumsResponse>(url);
     return albumResultToAlbum(results.data.items);
   }
 
   public async getPlaylistTracks(playlist: IPlaylist): Promise<ISong[]> {
     const url = `https://api.spotify.com/v1/playlists/${playlist.apiId}`;
-    const result = await http.get<ISpotifyPlaylistTrackResult>(url);
+    const result = await http.get<SpotifyApi.SinglePlaylistResponse>(url);
 
     return result.data.tracks.items.map((t) => ({
       albumId: t.track.album && t.track.album.uri,
@@ -341,7 +331,11 @@ class SpotifyPlayer {
       artistName: t.track.artists[0].name,
       duration: t.track.duration_ms / 1000,
       from: "spotify",
-      images: t.track.album.images,
+      images: t.track.album.images.map((i) => ({
+        url: i.url,
+        height: i.height,
+        width: i.width,
+      })),
       name: t.track.name,
       source: "",
     }));
@@ -349,11 +343,16 @@ class SpotifyPlayer {
 
   public async getUserPlaylists(): Promise<IPlaylist[]> {
     const url = "https://api.spotify.com/v1/me/playlists";
-    const results = await http.get<ISpotifyPlaylistResult>(url);
+    const results =
+      await http.get<SpotifyApi.ListOfCurrentUsersPlaylistsResponse>(url);
 
     return results.data.items.map((i) => ({
       name: i.name,
-      images: i.images,
+      images: i.images.map((i) => ({
+        width: i.width,
+        height: i.height,
+        url: i.url,
+      })),
       apiId: i.id,
     }));
   }
