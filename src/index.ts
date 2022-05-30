@@ -444,15 +444,15 @@ async function getArtistAlbums(artist: IArtist) {
 async function getPlaylistTracks(
   request: PlaylistTrackRequest
 ): Promise<SearchTrackResult> {
-  let url = `https://api.spotify.com/v1/playlists/${request.playlist.apiId}`;
+  let url = `https://api.spotify.com/v1/playlists/${request.playlist.apiId}/tracks`;
   if (request.page?.nextPage) {
     url = request.page.nextPage;
   } else if (request.page?.prevPage) {
     url = request.page.prevPage;
   }
-  const result = await http.get<SpotifyApi.SinglePlaylistResponse>(url);
+  const result = await http.get<SpotifyApi.PlaylistTrackResponse>(url);
 
-  const tracks: ISong[] = result.data.tracks.items.map((t) => ({
+  const tracks: ISong[] = result.data.items.map((t) => ({
     albumId: t.track?.album && t.track.album.uri,
     apiId: t.track?.uri,
     artistId: t.track?.artists[0].uri,
@@ -471,11 +471,11 @@ async function getPlaylistTracks(
   const response: SearchTrackResult = {
     items: tracks,
     pageInfo: {
-      resultsPerPage: result.data.tracks.limit,
-      offset: result.data.tracks.offset,
-      totalResults: result.data.tracks.total,
-      nextPage: result.data.tracks.next || undefined,
-      prevPage: result.data.tracks.previous || undefined,
+      resultsPerPage: result.data.limit,
+      offset: result.data.offset,
+      totalResults: result.data.total,
+      nextPage: result.data.next || undefined,
+      prevPage: result.data.previous || undefined,
     },
   };
   return response;
