@@ -43,14 +43,15 @@ export interface IImage {
 }
 
 export interface Application {
-  searchAll?: (query: string) => Promise<{
-    tracks?: ISong[];
-    albums?: IAlbum[];
-    artists?: IArtist[];
-    playlists?: IPlaylist[];
-  }>;
+  searchAll?: (request: SearchRequest) => Promise<SearchAllResult>;
+  searchTracks?: (request: SearchRequest) => Promise<SearchTrackResult>;
+  searchArtists?: (request: SearchRequest) => Promise<SearchArtistResult>;
+  searchAlbums?: (request: SearchRequest) => Promise<SearchAlbumResult>;
+  searchPlaylists?: (request: SearchRequest) => Promise<SearchPlaylistResult>;
   getTrackUrl?: (song: ISong) => Promise<void>;
-  getPlaylistTracks?: (playlist: IPlaylist) => Promise<void>;
+  getPlaylistTracks?: (
+    request: PlaylistTrackRequest
+  ) => Promise<SearchTrackResult>;
   postUiMessage: (msg: any) => Promise<void>;
   onDeepLinkMessage: (message: string) => Promise<void>;
   onUiMessage?: (message: any) => void;
@@ -64,6 +65,57 @@ export interface Application {
   getAlbumTracks?: (album: IAlbum) => Promise<ISong[]>;
   getArtistAlbums?: (artist: IArtist) => Promise<IAlbum[]>;
   setPlaybackRate?: (rate: number) => Promise<void>;
-  getUserPlaylists?: () => Promise<IPlaylist[]>;
   getPluginId: () => Promise<string>;
+  getUserPlaylists: (
+    request: UserPlaylistRequest
+  ) => Promise<SearchPlaylistResult>;
+}
+
+export interface PageInfo {
+  totalResults: number;
+  resultsPerPage: number;
+  offset: number;
+  nextPage?: string;
+  prevPage?: string;
+}
+
+export interface SearchAllResult {
+  tracks?: SearchTrackResult;
+  albums?: SearchAlbumResult;
+  artists?: SearchArtistResult;
+  playlists?: SearchPlaylistResult;
+}
+
+export interface SearchTrackResult {
+  items: ISong[];
+  pageInfo?: PageInfo;
+}
+
+export interface SearchArtistResult {
+  items: IArtist[];
+  pageInfo?: PageInfo;
+}
+
+export interface SearchAlbumResult {
+  items: IAlbum[];
+  pageInfo?: PageInfo;
+}
+
+export interface SearchPlaylistResult {
+  items: IPlaylist[];
+  pageInfo?: PageInfo;
+}
+
+export interface SearchRequest {
+  query: string;
+  page?: PageInfo;
+}
+
+export interface PlaylistTrackRequest {
+  playlist: IPlaylist;
+  page?: PageInfo;
+}
+
+export interface UserPlaylistRequest {
+  page?: PageInfo;
 }

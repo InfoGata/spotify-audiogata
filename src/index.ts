@@ -1,7 +1,22 @@
 import axios from "axios";
-import { ISong, IArtist, IAlbum, IPlaylist, Application } from "./types";
+import {
+  ISong,
+  IArtist,
+  IAlbum,
+  Application,
+  SearchAllResult,
+  SearchRequest,
+  PlaylistTrackRequest,
+  SearchTrackResult,
+  SearchPlaylistResult,
+  SearchAlbumResult,
+  SearchArtistResult,
+  UserPlaylistRequest,
+  IPlaylist,
+} from "./types";
 import { CLIENT_ID, TOKEN_URL } from "./shared";
 
+const apiUrl = "https://api.spotify.com/v1";
 const http = axios.create();
 
 const setTokens = (accessToken: string, refreshToken: string) => {
@@ -11,6 +26,8 @@ const setTokens = (accessToken: string, refreshToken: string) => {
 
 const refreshToken = async () => {
   const refreshToken = localStorage.getItem("refresh_token");
+  if (!refreshToken) return;
+
   const params = new URLSearchParams();
   params.append("grant_type", "refresh_token");
   params.append("refresh_token", refreshToken);
@@ -112,7 +129,6 @@ function albumResultToAlbum(
 
 class SpotifyPlayer {
   public name = "spotify";
-  private readonly apiUrl = "https://api.spotify.com/v1";
   private deviceId: string;
   private accessToken: string;
   private internalTime: number;
@@ -137,7 +153,9 @@ class SpotifyPlayer {
     const player = new (window as any).Spotify.Player({
       getOAuthToken: async (cb: (arg0: string) => void) => {
         const accessToken = await refreshToken();
-        cb(accessToken);
+        if (accessToken) {
+          cb(accessToken);
+        }
       },
       name: "Web Playback SDK Quick Start Player",
     });
@@ -198,7 +216,7 @@ class SpotifyPlayer {
     if (!this.deviceId) {
       return;
     }
-    const url = `${this.apiUrl}/me/player/play?device_id=${this.deviceId}`;
+    const url = `${apiUrl}/me/player/play?device_id=${this.deviceId}`;
 
     const trackId = song.apiId || "";
     await http.put(
@@ -280,101 +298,235 @@ class SpotifyPlayer {
     this.internalTime += 1000;
     application.setTrackTime(this.internalTime / 1000);
   };
+}
 
-  public async searchAll(query: string) {
-    if (!this.accessToken) {
-      return { tracks: [], albums: [], artists: [] };
-    }
-    const url = `${this.apiUrl}/search?q=${encodeURIComponent(
-      query
-    )}&type=album,artist,track`;
-    const results = await http.get<SpotifyApi.SearchResponse>(url);
-    const data = results.data;
-    const tracks = trackResultToSong(data.tracks.items);
-    const albums = albumResultToAlbum(data.albums.items);
-    const artists = artistResultToArtist(data.artists.items);
-    return { tracks, albums, artists };
+async function searchAll(request: SearchRequest): Promise<SearchAllResult> {
+  const url = `${apiUrl}/search?q=${encodeURIComponent(
+    request.query
+  )}&type=album,artist,track`;
+  const results = await http.get<SpotifyApi.SearchResponse>(url);
+  const data = results.data;
+
+  const tracks = trackResultToSong(data.tracks?.items || []);
+  const albums = albumResultToAlbum(data.albums?.items || []);
+  const artists = artistResultToArtist(data.artists?.items || []);
+
+  const response: SearchAllResult = {
+    tracks: {
+      items: tracks,
+      pageInfo: data.tracks && {
+        resultsPerPage: data.tracks.limit,
+        totalResults: data.tracks.total,
+        offset: data.tracks.offset,
+        nextPage: data.tracks.next || undefined,
+        prevPage: data.tracks.previous || undefined,
+      },
+    },
+    albums: {
+      items: albums,
+      pageInfo: data.albums && {
+        resultsPerPage: data.albums.limit,
+        totalResults: data.albums.total,
+        offset: data.albums.offset,
+        nextPage: data.albums.next || undefined,
+        prevPage: data.albums.previous || undefined,
+      },
+    },
+    artists: {
+      items: artists,
+      pageInfo: data.artists && {
+        resultsPerPage: data.artists.limit,
+        totalResults: data.artists.total,
+        offset: data.artists.offset,
+        nextPage: data.artists.next || undefined,
+        prevPage: data.artists.previous || undefined,
+      },
+    },
+  };
+
+  return response;
+}
+
+async function searchTracks(
+  request: SearchRequest
+): Promise<SearchTrackResult> {
+  let url = `${apiUrl}/search?q=${encodeURIComponent(
+    request.query
+  )}&type=track`;
+  if (request.page?.nextPage) {
+    url = request.page.nextPage;
+  } else if (request.page?.prevPage) {
+    url = request.page.prevPage;
   }
-
-  public async getAlbumTracks(album: IAlbum) {
-    if (!this.accessToken) {
-      return [];
-    }
-    const id = album.apiId.split(":").pop();
-    const url = `${this.apiUrl}/albums/${id}/tracks?limit=50`;
-    const results = await http.get<SpotifyApi.AlbumTracksResponse>(url);
-    const tracks = trackResultToSong(results.data.items as any);
-    tracks.forEach((t) => {
-      t.albumId = album.apiId;
-    });
-    return tracks;
+  const results = await http.get<SpotifyApi.SearchResponse>(url);
+  const data = results.data;
+  const tracks = trackResultToSong(data.tracks?.items || []);
+  return {
+    items: tracks,
+    pageInfo: data.artists && {
+      resultsPerPage: data.artists.limit,
+      totalResults: data.artists.total,
+      offset: data.artists.offset,
+      nextPage: data.artists.next || undefined,
+      prevPage: data.artists.previous || undefined,
+    },
+  };
+}
+async function searchAlbums(
+  request: SearchRequest
+): Promise<SearchAlbumResult> {
+  let url = `${apiUrl}/search?q=${encodeURIComponent(
+    request.query
+  )}&type=album`;
+  if (request.page?.nextPage) {
+    url = request.page.nextPage;
+  } else if (request.page?.prevPage) {
+    url = request.page.prevPage;
   }
-
-  public async getArtistAlbums(artist: IArtist) {
-    if (!this.accessToken) {
-      return [];
-    }
-    const id = artist.apiId.split(":").pop();
-    const url = `${this.apiUrl}/artists/${id}/albums`;
-    const results = await http.get<SpotifyApi.ArtistsAlbumsResponse>(url);
-    return albumResultToAlbum(results.data.items);
+  const results = await http.get<SpotifyApi.SearchResponse>(url);
+  const data = results.data;
+  const albums = albumResultToAlbum(data.albums?.items || []);
+  return {
+    items: albums,
+    pageInfo: data.albums && {
+      resultsPerPage: data.albums.limit,
+      totalResults: data.albums.total,
+      offset: data.albums.offset,
+      nextPage: data.albums.next || undefined,
+      prevPage: data.albums.previous || undefined,
+    },
+  };
+}
+async function searchArtists(
+  request: SearchRequest
+): Promise<SearchArtistResult> {
+  let url = `${apiUrl}/search?q=${encodeURIComponent(
+    request.query
+  )}&type=track`;
+  if (request.page?.nextPage) {
+    url = request.page.nextPage;
+  } else if (request.page?.prevPage) {
+    url = request.page.prevPage;
   }
+  const results = await http.get<SpotifyApi.SearchResponse>(url);
+  const data = results.data;
+  const artists = artistResultToArtist(data.artists?.items || []);
+  return {
+    items: artists,
+    pageInfo: data.artists && {
+      resultsPerPage: data.artists.limit,
+      totalResults: data.artists.total,
+      offset: data.artists.offset,
+      nextPage: data.artists.next || undefined,
+      prevPage: data.artists.previous || undefined,
+    },
+  };
+}
 
-  public async getPlaylistTracks(playlist: IPlaylist): Promise<ISong[]> {
-    const url = `https://api.spotify.com/v1/playlists/${playlist.apiId}`;
-    const result = await http.get<SpotifyApi.SinglePlaylistResponse>(url);
+async function getAlbumTracks(album: IAlbum) {
+  const id = album.apiId.split(":").pop();
+  const url = `${apiUrl}/albums/${id}/tracks?limit=50`;
+  const results = await http.get<SpotifyApi.AlbumTracksResponse>(url);
+  const tracks = trackResultToSong(results.data.items as any);
+  tracks.forEach((t) => {
+    t.albumId = album.apiId;
+  });
+  return tracks;
+}
 
-    return result.data.tracks.items.map((t) => ({
-      albumId: t.track.album && t.track.album.uri,
-      apiId: t.track.uri,
-      artistId: t.track.artists[0].uri,
-      artistName: t.track.artists[0].name,
-      duration: t.track.duration_ms / 1000,
-      from: "spotify",
-      images: t.track.album.images.map((i) => ({
+async function getArtistAlbums(artist: IArtist) {
+  const id = artist.apiId.split(":").pop();
+  const url = `${apiUrl}/artists/${id}/albums`;
+  const results = await http.get<SpotifyApi.ArtistsAlbumsResponse>(url);
+  return albumResultToAlbum(results.data.items);
+}
+
+async function getPlaylistTracks(
+  request: PlaylistTrackRequest
+): Promise<SearchTrackResult> {
+  let url = `https://api.spotify.com/v1/playlists/${request.playlist.apiId}`;
+  if (request.page?.nextPage) {
+    url = request.page.nextPage;
+  } else if (request.page?.prevPage) {
+    url = request.page.prevPage;
+  }
+  const result = await http.get<SpotifyApi.SinglePlaylistResponse>(url);
+
+  const tracks: ISong[] = result.data.tracks.items.map((t) => ({
+    albumId: t.track?.album && t.track.album.uri,
+    apiId: t.track?.uri,
+    artistId: t.track?.artists[0].uri,
+    artistName: t.track?.artists[0].name,
+    duration: (t.track?.duration_ms || 0) / 1000,
+    images:
+      t.track?.album.images.map((i) => ({
         url: i.url,
-        height: i.height,
-        width: i.width,
-      })),
-      name: t.track.name,
-      source: "",
-    }));
-  }
+        height: i.height || 0,
+        width: i.width || 0,
+      })) || [],
+    name: t.track?.name || "",
+    source: "",
+  }));
 
-  public async getUserPlaylists(): Promise<IPlaylist[]> {
-    const url = "https://api.spotify.com/v1/me/playlists";
-    const results =
-      await http.get<SpotifyApi.ListOfCurrentUsersPlaylistsResponse>(url);
+  const response: SearchTrackResult = {
+    items: tracks,
+    pageInfo: {
+      resultsPerPage: result.data.tracks.limit,
+      offset: result.data.tracks.offset,
+      totalResults: result.data.tracks.total,
+      nextPage: result.data.tracks.next || undefined,
+      prevPage: result.data.tracks.previous || undefined,
+    },
+  };
+  return response;
+}
 
-    return results.data.items.map((i) => ({
-      name: i.name,
-      images: i.images.map((i) => ({
-        width: i.width,
-        height: i.height,
-        url: i.url,
-      })),
-      apiId: i.id,
-    }));
-  }
+async function getUserPlaylists(
+  request: UserPlaylistRequest
+): Promise<SearchPlaylistResult> {
+  let url = "https://api.spotify.com/v1/me/playlists";
+  const result = await http.get<SpotifyApi.ListOfCurrentUsersPlaylistsResponse>(
+    url
+  );
+
+  const playlists: IPlaylist[] = result.data.items.map((i) => ({
+    name: i.name,
+    images: i.images.map((i) => ({
+      width: i.width || 0,
+      height: i.height || 0,
+      url: i.url,
+    })),
+    apiId: i.id,
+  }));
+  const response: SearchPlaylistResult = {
+    items: playlists,
+    pageInfo: {
+      resultsPerPage: result.data.limit,
+      offset: result.data.offset,
+      totalResults: result.data.total,
+      nextPage: result.data.next || undefined,
+      prevPage: result.data.previous || undefined,
+    },
+  };
+  return response;
 }
 
 const spotifyPlayer = new SpotifyPlayer();
-
 const setMethods = () => {
   spotifyPlayer.loadScript();
-  application.searchAll = spotifyPlayer.searchAll.bind(spotifyPlayer);
-  application.getAlbumTracks = spotifyPlayer.getAlbumTracks.bind(spotifyPlayer);
-  application.getArtistAlbums =
-    spotifyPlayer.getArtistAlbums.bind(spotifyPlayer);
+  application.searchAll = searchAll;
+  application.getAlbumTracks = getAlbumTracks;
+  application.getArtistAlbums = getArtistAlbums;
+  application.getPlaylistTracks = getPlaylistTracks;
+  application.searchTracks = searchTracks;
+  application.searchArtists = searchArtists;
+  application.searchAlbums = searchAlbums;
+  application.getUserPlaylists = getUserPlaylists;
   application.play = spotifyPlayer.play.bind(spotifyPlayer);
   application.pause = spotifyPlayer.pause.bind(spotifyPlayer);
   application.resume = spotifyPlayer.resume.bind(spotifyPlayer);
   application.seek = spotifyPlayer.seek.bind(spotifyPlayer);
   application.setVolume = spotifyPlayer.setVolume.bind(spotifyPlayer);
-  application.getUserPlaylists =
-    spotifyPlayer.getUserPlaylists.bind(spotifyPlayer);
-  application.getPlaylistTracks =
-    spotifyPlayer.getPlaylistTracks.bind(spotifyPlayer);
 };
 
 const init = () => {
