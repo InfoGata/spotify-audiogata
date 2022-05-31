@@ -29,7 +29,7 @@ function base64urlencode(str: ArrayBuffer) {
     .replace(/=+$/, "");
 }
 
-async function pkceChallengeFromVerifier(v) {
+async function pkceChallengeFromVerifier(v: any) {
   const hashed = await sha256(v);
   return base64urlencode(hashed);
 }
