@@ -1,20 +1,6 @@
 import axios from "axios";
-import {
-  ISong,
-  IArtist,
-  IAlbum,
-  Application,
-  SearchAllResult,
-  SearchRequest,
-  PlaylistTrackRequest,
-  SearchTrackResult,
-  SearchPlaylistResult,
-  SearchAlbumResult,
-  SearchArtistResult,
-  UserPlaylistRequest,
-  IPlaylist,
-} from "./types";
 import { CLIENT_ID, TOKEN_URL } from "./shared";
+import "audiogata-plugin-typings";
 
 const apiUrl = "https://api.spotify.com/v1";
 const http = axios.create();
