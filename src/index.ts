@@ -69,7 +69,7 @@ interface WebPlaybackError {
   message: WebPlaybackErrors;
 }
 
-function trackResultToSong(results: SpotifyApi.TrackObjectFull[]): ISong[] {
+function trackResultToSong(results: SpotifyApi.TrackObjectFull[]): Track[] {
   return results.map(
     (r) =>
       ({
@@ -81,36 +81,32 @@ function trackResultToSong(results: SpotifyApi.TrackObjectFull[]): ISong[] {
         from: "spotify",
         images: r.album.images,
         name: r.name,
-      } as ISong)
+      } as Track)
   );
 }
 
 function artistResultToArtist(
   results: SpotifyApi.ArtistObjectFull[]
-): IArtist[] {
-  return results.map(
-    (r) =>
-      ({
-        apiId: r.uri,
-        from: "spotify",
-        name: r.name,
-      } as IArtist)
-  );
+): Artist[] {
+  return results.map((r) => ({
+    apiId: r.uri,
+    from: "spotify",
+    name: r.name,
+    images: [],
+  }));
 }
 
 function albumResultToAlbum(
   results: SpotifyApi.AlbumObjectSimplified[]
-): IAlbum[] {
-  return results.map(
-    (r) =>
-      ({
-        apiId: r.uri,
-        artistId: r.artists[0].uri,
-        artistName: r.artists[0].name,
-        from: "spotify",
-        name: r.name,
-      } as IAlbum)
-  );
+): Album[] {
+  return results.map((r) => ({
+    apiId: r.uri,
+    artistId: r.artists[0].uri,
+    artistName: r.artists[0].name,
+    from: "spotify",
+    name: r.name,
+    images: [],
+  }));
 }
 
 class SpotifyPlayer {
@@ -198,7 +194,7 @@ class SpotifyPlayer {
     document.head.appendChild(script);
   }
 
-  public async play(song: ISong) {
+  public async play(song: Track) {
     if (!this.deviceId) {
       return;
     }
@@ -409,7 +405,7 @@ async function searchArtists(
   };
 }
 
-async function getAlbumTracks(album: IAlbum) {
+async function getAlbumTracks(album: Album) {
   const id = album.apiId.split(":").pop();
   const url = `${apiUrl}/albums/${id}/tracks?limit=50`;
   const results = await http.get<SpotifyApi.AlbumTracksResponse>(url);
@@ -420,7 +416,7 @@ async function getAlbumTracks(album: IAlbum) {
   return tracks;
 }
 
-async function getArtistAlbums(artist: IArtist) {
+async function getArtistAlbums(artist: Artist) {
   const id = artist.apiId.split(":").pop();
   const url = `${apiUrl}/artists/${id}/albums`;
   const results = await http.get<SpotifyApi.ArtistsAlbumsResponse>(url);
@@ -438,7 +434,7 @@ async function getPlaylistTracks(
   }
   const result = await http.get<SpotifyApi.PlaylistTrackResponse>(url);
 
-  const tracks: ISong[] = result.data.items.map((t) => ({
+  const tracks: Track[] = result.data.items.map((t) => ({
     albumId: t.track?.album && t.track.album.uri,
     apiId: t.track?.uri,
     artistId: t.track?.artists[0].uri,
@@ -475,7 +471,7 @@ async function getUserPlaylists(
     url
   );
 
-  const playlists: IPlaylist[] = result.data.items.map((i) => ({
+  const playlists: Playlist[] = result.data.items.map((i) => ({
     name: i.name,
     images: i.images.map((i) => ({
       width: i.width || 0,

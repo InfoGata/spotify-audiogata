@@ -14,9 +14,10 @@
     "start": "parcel src/index.ts src/options.html --dist-dir dist/ --no-source-maps"
   },
   "devDependencies": {
+    "audiogata-plugin-typings": "git@gitlab.com:elijahgreen/audiogata-plugin-typings.git",
     "parcel": "^2.0.1",
-    "typescript": "^4.2.3",
-    "audiogata-plugin-typings": "git@gitlab.com:elijahgreen/audiogata-plugin-typings.git"
+    "process": "^0.11.10",
+    "typescript": "^4.2.3"
   },
   "browserslist": [
     "last 1 Chrome version"
