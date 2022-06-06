@@ -411,7 +411,7 @@ async function getAlbumTracks(album: Album) {
   const results = await http.get<SpotifyApi.AlbumTracksResponse>(url);
   const tracks = trackResultToSong(results.data.items as any);
   tracks.forEach((t) => {
-    t.albumId = album.apiId;
+    t.albumApiId = album.apiId;
   });
   return tracks;
 }
@@ -471,7 +471,7 @@ async function getUserPlaylists(
     url
   );
 
-  const playlists: Playlist[] = result.data.items.map((i) => ({
+  const playlists: PlaylistInfo[] = result.data.items.map((i) => ({
     name: i.name,
     images: i.images.map((i) => ({
       width: i.width || 0,
@@ -504,11 +504,11 @@ const setMethods = () => {
   application.searchArtists = searchArtists;
   application.searchAlbums = searchAlbums;
   application.getUserPlaylists = getUserPlaylists;
-  application.play = spotifyPlayer.play.bind(spotifyPlayer);
-  application.pause = spotifyPlayer.pause.bind(spotifyPlayer);
-  application.resume = spotifyPlayer.resume.bind(spotifyPlayer);
-  application.seek = spotifyPlayer.seek.bind(spotifyPlayer);
-  application.setVolume = spotifyPlayer.setVolume.bind(spotifyPlayer);
+  application.onPlay = spotifyPlayer.play.bind(spotifyPlayer);
+  application.onPause = spotifyPlayer.pause.bind(spotifyPlayer);
+  application.onResume = spotifyPlayer.resume.bind(spotifyPlayer);
+  application.onSeek = spotifyPlayer.seek.bind(spotifyPlayer);
+  application.onSetVolume = spotifyPlayer.setVolume.bind(spotifyPlayer);
 };
 
 const init = () => {
