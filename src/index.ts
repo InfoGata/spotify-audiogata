@@ -492,14 +492,14 @@ async function getUserPlaylists(
 const spotifyPlayer = new SpotifyPlayer();
 const setMethods = () => {
   spotifyPlayer.loadScript();
-  application.searchAll = searchAll;
-  application.getAlbumTracks = getAlbumTracks;
-  application.getArtistAlbums = getArtistAlbums;
-  application.getPlaylistTracks = getPlaylistTracks;
-  application.searchTracks = searchTracks;
-  application.searchArtists = searchArtists;
-  application.searchAlbums = searchAlbums;
-  application.getUserPlaylists = getUserPlaylists;
+  application.onSearchAll = searchAll;
+  application.onGetAlbumTracks = getAlbumTracks;
+  application.onGetArtistAlbums = getArtistAlbums;
+  application.onGetPlaylistTracks = getPlaylistTracks;
+  application.onSearchTracks = searchTracks;
+  application.onSearchArtists = searchArtists;
+  application.onSearchAlbums = searchAlbums;
+  application.onGetUserPlaylists = getUserPlaylists;
   application.onPlay = spotifyPlayer.play.bind(spotifyPlayer);
   application.onPause = spotifyPlayer.pause.bind(spotifyPlayer);
   application.onResume = spotifyPlayer.resume.bind(spotifyPlayer);
