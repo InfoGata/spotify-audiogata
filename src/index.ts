@@ -78,7 +78,6 @@ function trackResultToSong(results: SpotifyApi.TrackObjectFull[]): Track[] {
         artistId: r.artists[0].uri,
         artistName: r.artists[0].name,
         duration: r.duration_ms / 1000,
-        from: "spotify",
         images: r.album.images,
         name: r.name,
       } as Track)
@@ -90,7 +89,6 @@ function artistResultToArtist(
 ): Artist[] {
   return results.map((r) => ({
     apiId: r.uri,
-    from: "spotify",
     name: r.name,
     images: [],
   }));
@@ -103,7 +101,6 @@ function albumResultToAlbum(
     apiId: r.uri,
     artistId: r.artists[0].uri,
     artistName: r.artists[0].name,
-    from: "spotify",
     name: r.name,
     images: [],
   }));
@@ -447,7 +444,6 @@ async function getPlaylistTracks(
         width: i.width || 0,
       })) || [],
     name: t.track?.name || "",
-    source: "",
   }));
 
   const response: SearchTrackResult = {
