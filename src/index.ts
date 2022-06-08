@@ -489,6 +489,14 @@ async function getUserPlaylists(
   return response;
 }
 
+async function getTopItems(): Promise<SearchAllResult> {
+  const url = "https://api.spotify.com/v1/me/top/tracks";
+  const result = await http.get<SpotifyApi.UsersTopTracksResponse>(url);
+  return {
+    tracks: { items: trackResultToSong(result.data.items) },
+  };
+}
+
 const spotifyPlayer = new SpotifyPlayer();
 const setMethods = () => {
   spotifyPlayer.loadScript();
@@ -500,6 +508,7 @@ const setMethods = () => {
   application.onSearchArtists = searchArtists;
   application.onSearchAlbums = searchAlbums;
   application.onGetUserPlaylists = getUserPlaylists;
+  application.onGetTopItems = getTopItems;
   application.onPlay = spotifyPlayer.play.bind(spotifyPlayer);
   application.onPause = spotifyPlayer.pause.bind(spotifyPlayer);
   application.onResume = spotifyPlayer.resume.bind(spotifyPlayer);

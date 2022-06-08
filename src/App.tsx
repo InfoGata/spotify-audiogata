@@ -82,7 +82,7 @@ const App: FunctionalComponent = () => {
     const state = generateRandomString();
     const codeVerifier = generateRandomString();
     const codeChallenge = await pkceChallengeFromVerifier(codeVerifier);
-    const scopes = "streaming user-read-email user-read-private";
+    const scopes = "streaming user-read-email user-read-private user-top-read";
     const url = `${authorizeUrl}?response_type=code&client_id=${encodeURIComponent(
       CLIENT_ID
     )}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(
