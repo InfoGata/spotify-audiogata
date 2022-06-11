@@ -16,6 +16,10 @@
     "build": "parcel build src/index.ts src/options.html --dist-dir dist/ --no-source-maps",
     "start": "parcel src/index.ts src/options.html --dist-dir dist/ --no-source-maps"
   },
+  "alias": {
+    "react": "preact/compat",
+    "react-dom": "preact/compat"
+  },
   "devDependencies": {
     "audiogata-plugin-typings": "git@gitlab.com:elijahgreen/audiogata-plugin-typings.git",
     "parcel": "^2.5.0",
