@@ -1,3 +1,4 @@
+import { Button } from "@mui/material";
 import axios from "axios";
 import { FunctionalComponent } from "preact";
 import { useState, useEffect } from "preact/hooks";
@@ -123,10 +124,14 @@ const App: FunctionalComponent = () => {
     <>
       {isSignedIn ? (
         <div>
-          <button onClick={onLogout}>Logout</button>
+          <Button variant="contained" onClick={onLogout}>
+            Logout
+          </Button>
         </div>
       ) : (
-        <button onClick={onLogin}>Login</button>
+        <Button variant="contained" onClick={onLogin}>
+          Login
+        </Button>
       )}
     </>
   );
