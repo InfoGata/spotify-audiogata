@@ -109,23 +109,15 @@ function albumResultToAlbum(
 class SpotifyPlayer {
   public name = "spotify";
   private deviceId: string;
-  private accessToken: string;
-  private internalTime: number;
   private interval: number | undefined;
   constructor() {
     this.deviceId = "";
-    this.accessToken = "";
-    this.internalTime = 0;
     this.init();
   }
 
   public init() {
     (window as any).onSpotifyWebPlaybackSDKReady =
       this.initializePlayer.bind(this);
-  }
-
-  public setAccessToken(accessToken: string) {
-    this.accessToken = accessToken;
   }
 
   private initializePlayer = () => {
@@ -153,19 +145,22 @@ class SpotifyPlayer {
     });
     // Playback status updates
     player.addListener("player_state_changed", async (state: any) => {
-      await application.setTrackTime(state.position / 1000);
-      this.internalTime = state.position;
-      // Attempt to detect if the song has ended
-      if (
-        state.paused &&
-        state.position === 0 &&
-        state.restrictions.disallow_resuming_reasons &&
-        state.restrictions.disallow_resuming_reasons[0] === "not_paused"
-      ) {
+      if (state) {
+        this.interval = setInterval(async () => {
+          let state = await player.getCurrentState();
+          console.log(state);
+          await application.setTrackTime(state.position / 1000);
+          if (state.paused && state.position === 0) {
+            if (this.interval) {
+              clearInterval(this.interval);
+            }
+            await application.endTrack();
+          }
+        }, 1000);
+      } else {
         if (this.interval) {
           clearInterval(this.interval);
         }
-        await application.endTrack();
       }
     });
     // Ready
@@ -209,7 +204,6 @@ class SpotifyPlayer {
         },
       }
     );
-    this.interval = window.setInterval(this.updateTime, 1000);
   }
 
   public async pause() {
@@ -222,9 +216,6 @@ class SpotifyPlayer {
         "Content-Type": "application/json",
       },
     });
-    if (this.interval) {
-      clearInterval(this.interval);
-    }
   }
 
   public async resume() {
@@ -240,7 +231,6 @@ class SpotifyPlayer {
         },
       }
     );
-    this.interval = window.setInterval(this.updateTime, 1000);
   }
 
   public async seek(timeInSeconds: number) {
@@ -272,11 +262,6 @@ class SpotifyPlayer {
       }
     );
   }
-
-  private updateTime = () => {
-    this.internalTime += 1000;
-    application.setTrackTime(this.internalTime / 1000);
-  };
 }
 
 async function searchAll(request: SearchRequest): Promise<SearchAllResult> {
@@ -520,8 +505,6 @@ const init = () => {
   const accessToken = localStorage.getItem("access_token");
   const refreshToken = localStorage.getItem("refresh_token");
   if (accessToken && refreshToken) {
-    application.postUiMessage({ type: "login" });
-    spotifyPlayer.setAccessToken(accessToken);
     setMethods();
   }
 };
@@ -541,10 +524,13 @@ application.onUiMessage = (message) => {
       type: "origin",
       value: origin,
     });
+    const accessToken = localStorage.getItem("access_token");
+    const refreshToken = localStorage.getItem("refresh_token");
+    if (accessToken && refreshToken) {
+      application.postUiMessage({ type: "login" });
+    }
   } else if (message.access_token) {
-    console.log(message);
     setTokens(message.access_token, message.refresh_token);
-    spotifyPlayer.setAccessToken(message.access_token);
     setMethods();
   }
 };
