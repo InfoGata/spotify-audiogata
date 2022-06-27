@@ -14,18 +14,23 @@ const refreshToken = async () => {
   const refreshToken = localStorage.getItem("refresh_token");
   if (!refreshToken) return;
 
-  const params = new URLSearchParams();
-  params.append("grant_type", "refresh_token");
-  params.append("refresh_token", refreshToken);
-  params.append("client_id", CLIENT_ID);
-  const result = await axios.post(TOKEN_URL, params, {
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-  });
-  if (result.data.access_token && result.data.refresh_token) {
-    setTokens(result.data.access_token, result.data.refresh_token);
-    return result.data.access_token as string;
+  try {
+    const params = new URLSearchParams();
+    params.append("grant_type", "refresh_token");
+    params.append("refresh_token", refreshToken);
+    params.append("client_id", CLIENT_ID);
+    const result = await axios.post(TOKEN_URL, params, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+    if (result.data.access_token && result.data.refresh_token) {
+      setTokens(result.data.access_token, result.data.refresh_token);
+      return result.data.access_token as string;
+    }
+  } catch {
+    const token = localStorage.getItem("access_token");
+    return token;
   }
 };
 
@@ -56,8 +61,6 @@ http.interceptors.response.use(
     }
   }
 );
-
-declare var application: Application;
 
 type WebPlaybackErrors =
   | "initialization_error"
@@ -148,7 +151,6 @@ class SpotifyPlayer {
       if (state) {
         this.interval = setInterval(async () => {
           let state = await player.getCurrentState();
-          console.log(state);
           await application.setTrackTime(state.position / 1000);
           if (state.paused && state.position === 0) {
             if (this.interval) {
