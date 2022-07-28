@@ -1,2 +1,36 @@
 export const TOKEN_URL = "https://accounts.spotify.com/api/token";
-export const CLIENT_ID = "b8f2fce4341b42e580e66a37302b358e";
+
+type UiCheckLoginType = {
+  type: "check-login";
+};
+type UiLoginType = {
+  type: "login";
+  accessToken: string;
+  refreshToken: string;
+};
+type UiLogoutType = {
+  type: "logout";
+};
+type UiSetKeysType = {
+  type: "set-keys";
+  clientId: string;
+};
+
+export type UiMessageType =
+  | UiCheckLoginType
+  | UiLoginType
+  | UiLogoutType
+  | UiSetKeysType;
+
+type LoginType = {
+  type: "login";
+};
+
+type InfoType = {
+  type: "info";
+  origin: string;
+  pluginId: string;
+  clientId: string;
+};
+
+export type MessageType = LoginType | InfoType;

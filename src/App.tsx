@@ -1,8 +1,8 @@
-import { Button } from "@mui/material";
+import { Box, Button, CssBaseline, TextField, Typography } from "@mui/material";
 import axios from "axios";
 import { FunctionalComponent } from "preact";
 import { useState, useEffect } from "preact/hooks";
-import { TOKEN_URL, CLIENT_ID } from "./shared";
+import { MessageType, TOKEN_URL, UiMessageType } from "./shared";
 
 function generateRandomString() {
   var array = new Uint32Array(28);
@@ -35,17 +35,29 @@ async function pkceChallengeFromVerifier(v: any) {
   return base64urlencode(hashed);
 }
 
+const sendMessage = (message: UiMessageType) => {
+  parent.postMessage(message, "*");
+};
+
 const authorizeUrl = "https://accounts.spotify.com/authorize";
 const redirectPath = "/login_popup.html";
 const App: FunctionalComponent = () => {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [redirectUri, setRedirectUri] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [pluginId, setPluginId] = useState("");
+  const [hasClientId, setHasClientId] = useState(false);
 
   useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
+    const onMessage = (event: MessageEvent<MessageType>) => {
       switch (event.data.type) {
-        case "origin":
-          setRedirectUri(event.data.value + redirectPath);
+        case "info":
+          setRedirectUri(event.data.origin + redirectPath);
+          setPluginId(event.data.pluginId);
+          setClientId(event.data.clientId);
+          if (event.data.clientId) {
+            setHasClientId(true);
+          }
           break;
         case "login":
           setIsSignedIn(true);
@@ -53,10 +65,10 @@ const App: FunctionalComponent = () => {
       }
     };
 
-    window.parent.postMessage("init", "*");
+    sendMessage({ type: "check-login" });
     window.addEventListener("message", onMessage);
     () => window.removeEventListener("message", onMessage);
-  });
+  }, []);
 
   async function getToken(url: URL, savedState: string, codeVerifier: string) {
     const code = url.searchParams.get("code") || "";
@@ -68,7 +80,7 @@ const App: FunctionalComponent = () => {
     const params = new URLSearchParams();
     params.append("grant_type", "authorization_code");
     params.append("code", code);
-    params.append("client_id", CLIENT_ID);
+    params.append("client_id", clientId);
     params.append("redirect_uri", redirectUri);
     params.append("code_verifier", codeVerifier);
     const result = await axios.post(TOKEN_URL, params, {
@@ -80,25 +92,29 @@ const App: FunctionalComponent = () => {
   }
 
   const pkce = async () => {
-    const state = generateRandomString();
+    const state = { state: generateRandomString(), pluginId: pluginId };
+    const stateStr = JSON.stringify(state);
     const codeVerifier = generateRandomString();
     const codeChallenge = await pkceChallengeFromVerifier(codeVerifier);
     const scopes = "streaming user-read-email user-read-private user-top-read";
-    const url = `${authorizeUrl}?response_type=code&client_id=${encodeURIComponent(
-      CLIENT_ID
-    )}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(
-      scopes
-    )}&redirect_uri=${encodeURIComponent(
-      redirectUri
-    )}&code_challenge=${encodeURIComponent(
-      codeChallenge
-    )}&code_challenge_method=S256`;
+    const url = new URL(authorizeUrl);
+    url.searchParams.append("response_type", "code");
+    url.searchParams.append("client_id", clientId);
+    url.searchParams.append("scope", scopes);
+    url.searchParams.append("state", stateStr);
+    url.searchParams.append("redirect_uri", redirectUri);
+    url.searchParams.append("code_challenge", codeChallenge);
+    url.searchParams.append("code_challenge_method", "S256");
     const newWindow = window.open(url);
     const onMessage = async (returnUrl: string) => {
       const url = new URL(returnUrl);
       newWindow?.close();
-      const result = await getToken(url, state, codeVerifier);
-      window.parent.postMessage(result, "*");
+      const result = await getToken(url, stateStr, codeVerifier);
+      sendMessage({
+        type: "login",
+        accessToken: result.access_token,
+        refreshToken: result.refrsh_token,
+      });
       setIsSignedIn(true);
     };
     window.onmessage = async (event: MessageEvent) => {
@@ -118,10 +134,24 @@ const App: FunctionalComponent = () => {
 
   const onLogout = () => {
     setIsSignedIn(false);
+    sendMessage({ type: "logout" });
   };
 
+  const onSaveClientId = () => {
+    setHasClientId(!!clientId);
+    sendMessage({
+      type: "set-keys",
+      clientId: clientId,
+    });
+  };
+
+  const saveButtonText = "Save Client ID";
+
   return (
-    <>
+    <Box
+      sx={{ display: "flex", "& .MuiTextField-root": { m: 1, width: "25ch" } }}
+    >
+      <CssBaseline />
       {isSignedIn ? (
         <div>
           <Button variant="contained" onClick={onLogout}>
@@ -129,11 +159,53 @@ const App: FunctionalComponent = () => {
           </Button>
         </div>
       ) : (
-        <Button variant="contained" onClick={onLogin}>
-          Login
-        </Button>
+        <div>
+          <Button variant="contained" onClick={onLogin} disabled={!hasClientId}>
+            Login
+          </Button>
+          <div>
+            <TextField
+              label="Client ID"
+              value={clientId}
+              onChange={(e) => {
+                const value = e.currentTarget.value;
+                setClientId(value);
+              }}
+            />
+            <div>
+              <Button variant="contained" onClick={onSaveClientId}>
+                {saveButtonText}
+              </Button>
+            </div>
+          </div>
+          <Typography>Instructions:</Typography>
+          <ol>
+            <li>
+              Browse to{" "}
+              <a
+                href="https://developer.spotify.com/dashboard/applications"
+                target="_blank"
+              >
+                https://developer.spotify.com/dashboard/applications.
+              </a>
+            </li>
+            <li>Log in with your Spotify account.</li>
+            <li>Click on "Create an app".</li>
+            <li>
+              Pick an "App name" and "App description" of your choice and mark
+              the checkboxes.
+            </li>
+            <li>After creation, Click "Edit Settings"</li>
+            <li>Add {redirectUri} to Redirect URIs and Save</li>
+            <li>Find "Client ID"</li>
+            <li>
+              Copy "Client ID" and insert into Client ID into Text field above
+              and click the "{saveButtonText}" Button
+            </li>
+          </ol>
+        </div>
       )}
-    </>
+    </Box>
   );
 };
 

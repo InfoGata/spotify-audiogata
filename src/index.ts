@@ -1,9 +1,17 @@
 import axios from "axios";
-import { CLIENT_ID, TOKEN_URL } from "./shared";
+import { MessageType, TOKEN_URL, UiMessageType } from "./shared";
 import "audiogata-plugin-typings";
 
 const apiUrl = "https://api.spotify.com/v1";
 const http = axios.create();
+
+const getClientId = () => {
+  return localStorage.getItem("clientId") || "";
+};
+
+const sendMessage = (message: MessageType) => {
+  application.postUiMessage(message);
+};
 
 const setTokens = (accessToken: string, refreshToken: string) => {
   localStorage.setItem("access_token", accessToken);
@@ -18,7 +26,7 @@ const refreshToken = async () => {
     const params = new URLSearchParams();
     params.append("grant_type", "refresh_token");
     params.append("refresh_token", refreshToken);
-    params.append("client_id", CLIENT_ID);
+    params.append("client_id", getClientId());
     const result = await axios.post(TOKEN_URL, params, {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -515,26 +523,43 @@ application.onDeepLinkMessage = async (message: string) => {
   application.postUiMessage({ type: "deeplink", url: message });
 };
 
-application.onUiMessage = (message) => {
-  if (message === "init") {
-    const host = document.location.host;
-    const hostArray = host.split(".");
-    hostArray.shift();
-    const domain = hostArray.join(".");
-    const origin = `${document.location.protocol}//${domain}`;
-    application.postUiMessage({
-      type: "origin",
-      value: origin,
-    });
-    const accessToken = localStorage.getItem("access_token");
-    const refreshToken = localStorage.getItem("refresh_token");
-    if (accessToken && refreshToken) {
-      application.postUiMessage({ type: "login" });
-    }
-  } else if (message.access_token) {
-    setTokens(message.access_token, message.refresh_token);
-    setMethods();
+const onUiMessage = async (message: UiMessageType) => {
+  switch (message.type) {
+    case "logout":
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      break;
+    case "set-keys":
+      localStorage.setItem("clientId", message.clientId);
+      break;
+    case "check-login":
+      const accessToken = localStorage.getItem("access_token");
+      const refreshToken = localStorage.getItem("refresh_token");
+      if (accessToken && refreshToken) {
+        sendMessage({ type: "login" });
+      }
+
+      const host = document.location.host;
+      const hostArray = host.split(".");
+      hostArray.shift();
+      const pluginId = await application.getPluginId();
+      const domain = hostArray.join(".");
+      const origin = `${document.location.protocol}//${domain}`;
+      const clientId = localStorage.getItem("clientId") ?? "";
+      sendMessage({
+        type: "info",
+        origin: origin,
+        pluginId: pluginId,
+        clientId: clientId,
+      });
+      break;
+    case "login":
+      setTokens(message.accessToken, message.refreshToken);
+      setMethods();
+      break;
   }
 };
+
+application.onUiMessage = onUiMessage;
 
 init();
