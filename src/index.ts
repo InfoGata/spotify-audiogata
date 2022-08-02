@@ -80,19 +80,18 @@ interface WebPlaybackError {
   message: WebPlaybackErrors;
 }
 
-function trackResultToSong(results: SpotifyApi.TrackObjectFull[]): Track[] {
-  return results.map(
-    (r) =>
-      ({
-        albumId: r.album && r.album.uri,
-        apiId: r.uri,
-        artistId: r.artists[0].uri,
-        artistName: r.artists[0].name,
-        duration: r.duration_ms / 1000,
-        images: r.album.images,
-        name: r.name,
-      } as Track)
-  );
+function trackResultToSong(
+  results: (SpotifyApi.TrackObjectFull | SpotifyApi.TrackObjectSimplified)[]
+): Track[] {
+  return results.map((r) => ({
+    albumId: "album" in r && r.album.uri,
+    apiId: r.uri,
+    artistId: r.artists[0].uri,
+    artistName: r.artists[0].name,
+    duration: r.duration_ms / 1000,
+    images: "album" in r ? (r.album.images as ImageInfo[]) : [],
+    name: r.name,
+  }));
 }
 
 function artistResultToArtist(
@@ -101,7 +100,7 @@ function artistResultToArtist(
   return results.map((r) => ({
     apiId: r.uri,
     name: r.name,
-    images: [],
+    images: r.images as ImageInfo[],
   }));
 }
 
@@ -113,7 +112,7 @@ function albumResultToAlbum(
     artistId: r.artists[0].uri,
     artistName: r.artists[0].name,
     name: r.name,
-    images: [],
+    images: r.images as ImageInfo[],
   }));
 }
 
@@ -397,22 +396,25 @@ async function searchArtists(
   };
 }
 
-async function getAlbumTracks(album: Album) {
-  const id = album.apiId.split(":").pop();
-  const url = `${apiUrl}/albums/${id}/tracks?limit=50`;
-  const results = await http.get<SpotifyApi.AlbumTracksResponse>(url);
-  const tracks = trackResultToSong(results.data.items as any);
+async function getAlbumTracks(request: AlbumTrackRequest) {
+  const id = request.album.apiId.split(":").pop();
+  const url = `${apiUrl}/albums/${id}`;
+  const results = await http.get<SpotifyApi.SingleAlbumResponse>(url);
+  const tracks = trackResultToSong(results.data.tracks.items);
   tracks.forEach((t) => {
-    t.albumApiId = album.apiId;
+    t.albumApiId = request.album.apiId;
+    t.images = results.data.images as ImageInfo[];
   });
-  return tracks;
+  return {
+    items: tracks,
+  };
 }
 
-async function getArtistAlbums(artist: Artist) {
-  const id = artist.apiId.split(":").pop();
+async function getArtistAlbums(request: ArtistAlbumRequest) {
+  const id = request.artist.apiId.split(":").pop();
   const url = `${apiUrl}/artists/${id}/albums`;
   const results = await http.get<SpotifyApi.ArtistsAlbumsResponse>(url);
-  return albumResultToAlbum(results.data.items);
+  return { items: albumResultToAlbum(results.data.items) };
 }
 
 async function getPlaylistTracks(
