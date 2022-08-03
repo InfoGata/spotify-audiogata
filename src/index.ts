@@ -195,7 +195,7 @@ class SpotifyPlayer {
     document.head.appendChild(script);
   }
 
-  public async play(song: Track) {
+  public async play(song: PlayTrackRequest) {
     if (!this.deviceId) {
       return;
     }
