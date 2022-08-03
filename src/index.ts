@@ -397,12 +397,12 @@ async function searchArtists(
 }
 
 async function getAlbumTracks(request: AlbumTrackRequest) {
-  const id = request.album.apiId.split(":").pop();
+  const id = request.apiId?.split(":").pop();
   const url = `${apiUrl}/albums/${id}`;
   const results = await http.get<SpotifyApi.SingleAlbumResponse>(url);
   const tracks = trackResultToSong(results.data.tracks.items);
   tracks.forEach((t) => {
-    t.albumApiId = request.album.apiId;
+    t.albumApiId = request.apiId;
     t.images = results.data.images as ImageInfo[];
   });
   return {
@@ -411,7 +411,7 @@ async function getAlbumTracks(request: AlbumTrackRequest) {
 }
 
 async function getArtistAlbums(request: ArtistAlbumRequest) {
-  const id = request.artist.apiId.split(":").pop();
+  const id = request.apiId?.split(":").pop();
   const url = `${apiUrl}/artists/${id}/albums`;
   const results = await http.get<SpotifyApi.ArtistsAlbumsResponse>(url);
   return { items: albumResultToAlbum(results.data.items) };
@@ -420,7 +420,7 @@ async function getArtistAlbums(request: ArtistAlbumRequest) {
 async function getPlaylistTracks(
   request: PlaylistTrackRequest
 ): Promise<SearchTrackResult> {
-  let url = `https://api.spotify.com/v1/playlists/${request.playlist.apiId}/tracks`;
+  let url = `https://api.spotify.com/v1/playlists/${request.apiId}/tracks`;
   if (request.page?.nextPage) {
     url = request.page.nextPage;
   } else if (request.page?.prevPage) {
