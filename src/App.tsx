@@ -113,7 +113,7 @@ const App: FunctionalComponent = () => {
       sendMessage({
         type: "login",
         accessToken: result.access_token,
-        refreshToken: result.refrsh_token,
+        refreshToken: result.refresh_token,
       });
       setIsSignedIn(true);
     };

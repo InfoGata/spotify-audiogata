@@ -13,9 +13,11 @@ const sendMessage = (message: MessageType) => {
   application.postUiMessage(message);
 };
 
-const setTokens = (accessToken: string, refreshToken: string) => {
+const setTokens = (accessToken: string, refreshToken?: string) => {
   localStorage.setItem("access_token", accessToken);
-  localStorage.setItem("refresh_token", refreshToken);
+  if (refreshToken) {
+    localStorage.setItem("refresh_token", refreshToken);
+  }
 };
 
 const refreshToken = async () => {
@@ -111,6 +113,7 @@ function albumResultToAlbum(
     apiId: r.uri,
     artistId: r.artists[0].uri,
     artistName: r.artists[0].name,
+    artistApiId: r.artists[0].id,
     name: r.name,
     images: r.images as ImageInfo[],
   }));
@@ -396,7 +399,9 @@ async function searchArtists(
   };
 }
 
-async function getAlbumTracks(request: AlbumTrackRequest) {
+async function getAlbumTracks(
+  request: AlbumTrackRequest
+): Promise<AlbumTracksResult> {
   const id = request.apiId?.split(":").pop();
   const url = `${apiUrl}/albums/${id}`;
   const results = await http.get<SpotifyApi.SingleAlbumResponse>(url);
@@ -406,15 +411,33 @@ async function getAlbumTracks(request: AlbumTrackRequest) {
     t.images = results.data.images as ImageInfo[];
   });
   return {
+    album: {
+      name: results.data.name,
+      artistName: results.data.artists[0].name,
+      artistApiId: results.data.artists[0].id,
+      apiId: results.data.id,
+      images: results.data.images as ImageInfo[],
+    },
     items: tracks,
   };
 }
 
-async function getArtistAlbums(request: ArtistAlbumRequest) {
+async function getArtistAlbums(
+  request: ArtistAlbumRequest
+): Promise<ArtistAlbumsResult> {
   const id = request.apiId?.split(":").pop();
+  const detailsUrl = `${apiUrl}/artists/${id}`;
   const url = `${apiUrl}/artists/${id}/albums`;
+  const detailsResult = await http.get<SpotifyApi.ArtistObjectFull>(detailsUrl);
   const results = await http.get<SpotifyApi.ArtistsAlbumsResponse>(url);
-  return { items: albumResultToAlbum(results.data.items) };
+  return {
+    items: albumResultToAlbum(results.data.items),
+    artist: {
+      name: detailsResult.data.name,
+      apiId: detailsResult.data.id,
+      images: detailsResult.data.images as ImageInfo[],
+    },
+  };
 }
 
 async function getPlaylistTracks(
