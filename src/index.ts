@@ -72,16 +72,6 @@ http.interceptors.response.use(
   }
 );
 
-type WebPlaybackErrors =
-  | "initialization_error"
-  | "authentication_error"
-  | "account_error"
-  | "playback_error";
-
-interface WebPlaybackError {
-  message: WebPlaybackErrors;
-}
-
 function trackResultToSong(
   results: (SpotifyApi.TrackObjectFull | SpotifyApi.TrackObjectSimplified)[]
 ): Track[] {
@@ -123,18 +113,18 @@ class SpotifyPlayer {
   public name = "spotify";
   private deviceId: string;
   private interval: number | undefined;
+  private previousState: Spotify.PlaybackState | null = null;
   constructor() {
     this.deviceId = "";
     this.init();
   }
 
   public init() {
-    (window as any).onSpotifyWebPlaybackSDKReady =
-      this.initializePlayer.bind(this);
+    window.onSpotifyWebPlaybackSDKReady = this.initializePlayer.bind(this);
   }
 
   private initializePlayer = () => {
-    const player = new (window as any).Spotify.Player({
+    const player = new window.Spotify.Player({
       getOAuthToken: async (cb: (arg0: string) => void) => {
         const accessToken = await refreshToken();
         if (accessToken) {
@@ -144,31 +134,42 @@ class SpotifyPlayer {
       name: "Web Playback SDK Quick Start Player",
     });
     // Error handling
-    player.addListener("initialization_error", (error: WebPlaybackError) => {
+    player.addListener("initialization_error", (error) => {
       console.error(error);
     });
-    player.addListener("authentication_error", (error: WebPlaybackError) => {
+    player.addListener("authentication_error", (error) => {
       console.error(error);
     });
-    player.addListener("account_error", (error: WebPlaybackError) => {
+    player.addListener("account_error", (error) => {
       console.error(error);
     });
-    player.addListener("playback_error", (error: WebPlaybackError) => {
+    player.addListener("playback_error", (error) => {
       console.error(error);
     });
     // Playback status updates
-    player.addListener("player_state_changed", async (state: any) => {
+    player.addListener("player_state_changed", async (state) => {
       if (state) {
         this.interval = setInterval(async () => {
           let state = await player.getCurrentState();
-          await application.setTrackTime(state.position / 1000);
-          if (state.paused && state.position === 0) {
-            if (this.interval) {
-              clearInterval(this.interval);
-            }
-            await application.endTrack();
+          if (state) {
+            await application.setTrackTime(state.position / 1000);
           }
         }, 1000);
+
+        if (
+          state &&
+          this.previousState &&
+          !this.previousState.paused &&
+          state.paused &&
+          state.position === 0
+        ) {
+          if (this.interval) {
+            clearInterval(this.interval);
+          }
+          console.log("ending track: ", state);
+          await application.endTrack();
+        }
+        this.previousState = state;
       } else {
         if (this.interval) {
           clearInterval(this.interval);
@@ -223,11 +224,13 @@ class SpotifyPlayer {
       return;
     }
 
-    await http.put(`https://api.spotify.com/v1/me/player/pause`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    if (this.previousState && !this.previousState.paused) {
+      await http.put(`https://api.spotify.com/v1/me/player/pause`, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    }
   }
 
   public async resume() {
@@ -264,9 +267,9 @@ class SpotifyPlayer {
 
   public async setVolume(volume: number) {
     await http.put(
-      `https://api.spotify.com/v1/me/player/volume?volume_percent=${
+      `https://api.spotify.com/v1/me/player/volume?volume_percent=${Math.round(
         volume * 100
-      }`,
+      )}`,
       {
         headers: {
           "Content-Type": "application/json",
