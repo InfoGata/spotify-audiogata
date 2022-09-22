@@ -210,6 +210,7 @@ class SpotifyPlayer {
       url,
       {
         uris: [trackId],
+        position_ms: (song.seekTime ?? 0) * 1000,
       },
       {
         headers: {
@@ -256,7 +257,7 @@ class SpotifyPlayer {
     await http.put(
       `https://api.spotify.com/v1/me/player/seek?position_ms=${
         timeInSeconds * 1000
-      }`,
+      }&device_id=${this.deviceId}`,
       {
         headers: {
           "Content-Type": "application/json",
