@@ -343,12 +343,12 @@ async function searchTracks(
   const tracks = trackResultToSong(data.tracks?.items || []);
   return {
     items: tracks,
-    pageInfo: data.artists && {
-      resultsPerPage: data.artists.limit,
-      totalResults: data.artists.total,
-      offset: data.artists.offset,
-      nextPage: data.artists.next || undefined,
-      prevPage: data.artists.previous || undefined,
+    pageInfo: data.tracks && {
+      resultsPerPage: data.tracks.limit,
+      totalResults: data.tracks.total,
+      offset: data.tracks.offset,
+      nextPage: data.tracks.next || undefined,
+      prevPage: data.tracks.previous || undefined,
     },
   };
 }
