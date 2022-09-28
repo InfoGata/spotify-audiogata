@@ -166,7 +166,6 @@ class SpotifyPlayer {
           if (this.interval) {
             clearInterval(this.interval);
           }
-          console.log("ending track: ", state);
           await application.endTrack();
         }
         this.previousState = state;
@@ -408,19 +407,21 @@ async function getAlbumTracks(
 ): Promise<AlbumTracksResult> {
   const id = request.apiId?.split(":").pop();
   const url = `${apiUrl}/albums/${id}`;
+
   const results = await http.get<SpotifyApi.SingleAlbumResponse>(url);
   const tracks = trackResultToSong(results.data.tracks.items);
   tracks.forEach((t) => {
     t.albumApiId = request.apiId;
     t.images = results.data.images as ImageInfo[];
   });
+  const data = results.data;
   return {
     album: {
-      name: results.data.name,
-      artistName: results.data.artists[0].name,
-      artistApiId: results.data.artists[0].id,
-      apiId: results.data.id,
-      images: results.data.images as ImageInfo[],
+      name: data.name,
+      artistName: data.artists[0].name,
+      artistApiId: data.artists[0].id,
+      apiId: data.id,
+      images: data.images as ImageInfo[],
     },
     items: tracks,
   };
@@ -431,11 +432,24 @@ async function getArtistAlbums(
 ): Promise<ArtistAlbumsResult> {
   const id = request.apiId?.split(":").pop();
   const detailsUrl = `${apiUrl}/artists/${id}`;
-  const url = `${apiUrl}/artists/${id}/albums`;
+  let url = `${apiUrl}/artists/${id}/albums`;
+  if (request.page?.nextPage) {
+    url = request.page.nextPage;
+  } else if (request.page?.prevPage) {
+    url = request.page.prevPage;
+  }
   const detailsResult = await http.get<SpotifyApi.ArtistObjectFull>(detailsUrl);
   const results = await http.get<SpotifyApi.ArtistsAlbumsResponse>(url);
+  const data = results.data;
   return {
     items: albumResultToAlbum(results.data.items),
+    pageInfo: {
+      resultsPerPage: data.limit,
+      totalResults: data.total,
+      offset: data.offset,
+      nextPage: data.next || undefined,
+      prevPage: data.previous || undefined,
+    },
     artist: {
       name: detailsResult.data.name,
       apiId: detailsResult.data.id,
