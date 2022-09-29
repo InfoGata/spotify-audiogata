@@ -461,38 +461,47 @@ async function getArtistAlbums(
 async function getPlaylistTracks(
   request: PlaylistTrackRequest
 ): Promise<SearchTrackResult> {
-  let url = `https://api.spotify.com/v1/playlists/${request.apiId}/tracks`;
+  const limit = 50;
+  let offset = 0;
+  let url = `https://api.spotify.com/v1/playlists/${
+    request.apiId
+  }/tracks?limit=${50}`;
   if (request.page?.nextPage) {
     url = request.page.nextPage;
   } else if (request.page?.prevPage) {
     url = request.page.prevPage;
   }
-  const result = await http.get<SpotifyApi.PlaylistTrackResponse>(url);
 
-  const tracks: Track[] = result.data.items.map((t) => ({
-    albumId: t.track?.album && t.track.album.uri,
-    apiId: t.track?.uri,
-    artistId: t.track?.artists[0].uri,
-    artistName: t.track?.artists[0].name,
-    duration: (t.track?.duration_ms || 0) / 1000,
-    images:
-      t.track?.album.images.map((i) => ({
-        url: i.url,
-        height: i.height || 0,
-        width: i.width || 0,
-      })) || [],
-    name: t.track?.name || "",
-  }));
+  let allTracks: Track[] = [];
+
+  let more = true;
+  while (more) {
+    const result = await http.get<SpotifyApi.PlaylistTrackResponse>(
+      `${url}&offset=${offset}`
+    );
+    const tracks: Track[] = result.data.items.map((t) => ({
+      albumId: t.track?.album && t.track.album.uri,
+      apiId: t.track?.uri,
+      artistId: t.track?.artists[0].uri,
+      artistName: t.track?.artists[0].name,
+      duration: (t.track?.duration_ms || 0) / 1000,
+      images:
+        t.track?.album.images.map((i) => ({
+          url: i.url,
+          height: i.height || 0,
+          width: i.width || 0,
+        })) || [],
+      name: t.track?.name || "",
+    }));
+    allTracks = allTracks.concat(tracks);
+    offset += limit;
+    if (!result.data.next) {
+      more = false;
+    }
+  }
 
   const response: SearchTrackResult = {
-    items: tracks,
-    pageInfo: {
-      resultsPerPage: result.data.limit,
-      offset: result.data.offset,
-      totalResults: result.data.total,
-      nextPage: result.data.next || undefined,
-      prevPage: result.data.previous || undefined,
-    },
+    items: allTracks,
   };
   return response;
 }
