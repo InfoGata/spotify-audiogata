@@ -116,10 +116,6 @@ class SpotifyPlayer {
   private previousState: Spotify.PlaybackState | null = null;
   constructor() {
     this.deviceId = "";
-    this.init();
-  }
-
-  public init() {
     window.onSpotifyWebPlaybackSDKReady = this.initializePlayer.bind(this);
   }
 
@@ -131,7 +127,7 @@ class SpotifyPlayer {
           cb(accessToken);
         }
       },
-      name: "Web Playback SDK Quick Start Player",
+      name: "AudioGata Player",
     });
     // Error handling
     player.addListener("initialization_error", (error) => {
@@ -163,6 +159,7 @@ class SpotifyPlayer {
           state.paused &&
           state.position === 0
         ) {
+          this.previousState = state;
           if (this.interval) {
             clearInterval(this.interval);
           }
