@@ -75,38 +75,43 @@ http.interceptors.response.use(
 function trackResultToSong(
   results: (SpotifyApi.TrackObjectFull | SpotifyApi.TrackObjectSimplified)[]
 ): Track[] {
-  return results.map((r) => ({
-    albumId: "album" in r && r.album.uri,
-    apiId: r.uri,
-    artistId: r.artists[0].uri,
-    artistName: r.artists[0].name,
-    duration: r.duration_ms / 1000,
-    images: "album" in r ? (r.album.images as ImageInfo[]) : [],
-    name: r.name,
-  }));
+  return results.map(
+    (r): Track => ({
+      albumApiId: "album" in r ? r.album.uri : undefined,
+      apiId: r.uri,
+      artistApiId: r.artists[0].uri,
+      artistName: r.artists[0].name,
+      duration: r.duration_ms / 1000,
+      images: "album" in r ? (r.album.images as ImageInfo[]) : [],
+      name: r.name,
+    })
+  );
 }
 
 function artistResultToArtist(
   results: SpotifyApi.ArtistObjectFull[]
 ): Artist[] {
-  return results.map((r) => ({
-    apiId: r.uri,
-    name: r.name,
-    images: r.images as ImageInfo[],
-  }));
+  return results.map(
+    (r): Artist => ({
+      apiId: r.uri,
+      name: r.name,
+      images: r.images as ImageInfo[],
+    })
+  );
 }
 
 function albumResultToAlbum(
   results: SpotifyApi.AlbumObjectSimplified[]
 ): Album[] {
-  return results.map((r) => ({
-    apiId: r.uri,
-    artistId: r.artists[0].uri,
-    artistName: r.artists[0].name,
-    artistApiId: r.artists[0].id,
-    name: r.name,
-    images: r.images as ImageInfo[],
-  }));
+  return results.map(
+    (r): Album => ({
+      apiId: r.uri,
+      artistName: r.artists[0].name,
+      artistApiId: r.artists[0].id,
+      name: r.name,
+      images: r.images as ImageInfo[],
+    })
+  );
 }
 
 class SpotifyPlayer {
@@ -163,7 +168,8 @@ class SpotifyPlayer {
           if (this.interval) {
             clearInterval(this.interval);
           }
-          await application.endTrack();
+          // Create small delay or else may have 502 errors
+          setTimeout(application.endTrack, 100);
         }
         this.previousState = state;
       } else {
@@ -329,10 +335,10 @@ async function searchTracks(
   let url = `${apiUrl}/search?q=${encodeURIComponent(
     request.query
   )}&type=track`;
-  if (request.page?.nextPage) {
-    url = request.page.nextPage;
-  } else if (request.page?.prevPage) {
-    url = request.page.prevPage;
+  if (request.pageInfo?.nextPage) {
+    url = request.pageInfo.nextPage;
+  } else if (request.pageInfo?.prevPage) {
+    url = request.pageInfo.prevPage;
   }
   const results = await http.get<SpotifyApi.SearchResponse>(url);
   const data = results.data;
@@ -354,10 +360,10 @@ async function searchAlbums(
   let url = `${apiUrl}/search?q=${encodeURIComponent(
     request.query
   )}&type=album`;
-  if (request.page?.nextPage) {
-    url = request.page.nextPage;
-  } else if (request.page?.prevPage) {
-    url = request.page.prevPage;
+  if (request.pageInfo?.nextPage) {
+    url = request.pageInfo.nextPage;
+  } else if (request.pageInfo?.prevPage) {
+    url = request.pageInfo.prevPage;
   }
   const results = await http.get<SpotifyApi.SearchResponse>(url);
   const data = results.data;
@@ -379,10 +385,10 @@ async function searchArtists(
   let url = `${apiUrl}/search?q=${encodeURIComponent(
     request.query
   )}&type=track`;
-  if (request.page?.nextPage) {
-    url = request.page.nextPage;
-  } else if (request.page?.prevPage) {
-    url = request.page.prevPage;
+  if (request.pageInfo?.nextPage) {
+    url = request.pageInfo.nextPage;
+  } else if (request.pageInfo?.prevPage) {
+    url = request.pageInfo.prevPage;
   }
   const results = await http.get<SpotifyApi.SearchResponse>(url);
   const data = results.data;
@@ -430,10 +436,10 @@ async function getArtistAlbums(
   const id = request.apiId?.split(":").pop();
   const detailsUrl = `${apiUrl}/artists/${id}`;
   let url = `${apiUrl}/artists/${id}/albums`;
-  if (request.page?.nextPage) {
-    url = request.page.nextPage;
-  } else if (request.page?.prevPage) {
-    url = request.page.prevPage;
+  if (request.pageInfo?.nextPage) {
+    url = request.pageInfo.nextPage;
+  } else if (request.pageInfo?.prevPage) {
+    url = request.pageInfo.prevPage;
   }
   const detailsResult = await http.get<SpotifyApi.ArtistObjectFull>(detailsUrl);
   const results = await http.get<SpotifyApi.ArtistsAlbumsResponse>(url);
@@ -463,10 +469,10 @@ async function getPlaylistTracks(
   let url = `https://api.spotify.com/v1/playlists/${
     request.apiId
   }/tracks?limit=${50}`;
-  if (request.page?.nextPage) {
-    url = request.page.nextPage;
-  } else if (request.page?.prevPage) {
-    url = request.page.prevPage;
+  if (request.pageInfo?.nextPage) {
+    url = request.pageInfo.nextPage;
+  } else if (request.pageInfo?.prevPage) {
+    url = request.pageInfo.prevPage;
   }
 
   let allTracks: Track[] = [];
@@ -476,20 +482,24 @@ async function getPlaylistTracks(
     const result = await http.get<SpotifyApi.PlaylistTrackResponse>(
       `${url}&offset=${offset}`
     );
-    const tracks: Track[] = result.data.items.map((t) => ({
-      albumId: t.track?.album && t.track.album.uri,
-      apiId: t.track?.uri,
-      artistId: t.track?.artists[0].uri,
-      artistName: t.track?.artists[0].name,
-      duration: (t.track?.duration_ms || 0) / 1000,
-      images:
-        t.track?.album.images.map((i) => ({
-          url: i.url,
-          height: i.height || 0,
-          width: i.width || 0,
-        })) || [],
-      name: t.track?.name || "",
-    }));
+    const tracks: Track[] = result.data.items.map(
+      (t): Track => ({
+        albumApiId: t.track?.album && t.track.album.uri,
+        apiId: t.track?.uri,
+        artistName: t.track?.artists[0].name,
+        artistApiId: t.track?.artists[0].uri,
+        duration: (t.track?.duration_ms || 0) / 1000,
+        images:
+          t.track?.album.images.map(
+            (i): ImageInfo => ({
+              url: i.url,
+              height: i.height || 0,
+              width: i.width || 0,
+            })
+          ) || [],
+        name: t.track?.name || "",
+      })
+    );
     allTracks = allTracks.concat(tracks);
     offset += limit;
     if (!result.data.next) {
@@ -511,15 +521,19 @@ async function getUserPlaylists(
     url
   );
 
-  const playlists: PlaylistInfo[] = result.data.items.map((i) => ({
-    name: i.name,
-    images: i.images.map((i) => ({
-      width: i.width || 0,
-      height: i.height || 0,
-      url: i.url,
-    })),
-    apiId: i.id,
-  }));
+  const playlists: PlaylistInfo[] = result.data.items.map(
+    (i): PlaylistInfo => ({
+      name: i.name,
+      images: i.images.map(
+        (i): ImageInfo => ({
+          width: i.width || 0,
+          height: i.height || 0,
+          url: i.url,
+        })
+      ),
+      apiId: i.id,
+    })
+  );
   const response: SearchPlaylistResult = {
     items: playlists,
     pageInfo: {
