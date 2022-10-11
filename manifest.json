@@ -1,7 +1,7 @@
 {
   "id": "uIAyZ62xBHMEY3cwti8AN",
   "name": "Plugin for Spotify",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "Play music from Spotify. Requires Spotify login",
   "script": "dist/index.js",
   "options": "dist/options.html"
