@@ -1,6 +1,5 @@
 import axios from "axios";
 import { MessageType, TOKEN_URL, UiMessageType } from "./shared";
-import "audiogata-plugin-typings";
 
 const apiUrl = "https://api.spotify.com/v1";
 const http = axios.create();
