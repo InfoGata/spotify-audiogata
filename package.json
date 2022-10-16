@@ -5,12 +5,12 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@emotion/react": "^11.7.1",
-    "@emotion/styled": "^11.6.0",
-    "@mui/material": "5.1.0",
+    "@emotion/react": "^11.10.4",
+    "@emotion/styled": "^11.10.4",
+    "@mui/material": "^5.10.9",
     "@types/spotify-api": "^0.0.16",
     "axios": "^0.21.1",
-    "preact": "^10.7.1"
+    "preact": "^10.11.2"
   },
   "scripts": {
     "build": "parcel build src/index.ts src/options.html --dist-dir dist/ --no-source-maps",
