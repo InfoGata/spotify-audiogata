@@ -62,6 +62,9 @@ const App: FunctionalComponent = () => {
         case "login":
           setIsSignedIn(true);
           break;
+        default:
+          const _exhaustive: never = event.data;
+          break;
       }
     };
 

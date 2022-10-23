@@ -619,6 +619,9 @@ const onUiMessage = async (message: UiMessageType) => {
       setTokens(message.accessToken, message.refreshToken);
       setMethods();
       break;
+    default:
+      const _exhaustive: never = message;
+      break;
   }
 };
 
