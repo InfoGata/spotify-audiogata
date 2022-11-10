@@ -118,9 +118,14 @@ class SpotifyPlayer {
   private deviceId: string;
   private interval: number | undefined;
   private previousState: Spotify.PlaybackState | null = null;
+  private resolveReady: any;
+  private readyPromise: Promise<void>;
   constructor() {
     this.deviceId = "";
     window.onSpotifyWebPlaybackSDKReady = this.initializePlayer.bind(this);
+    this.readyPromise = new Promise((resolve) => {
+      this.resolveReady = resolve;
+    });
   }
 
   private initializePlayer = () => {
@@ -181,6 +186,7 @@ class SpotifyPlayer {
     player.addListener("ready", ({ device_id }: { device_id: string }) => {
       console.log("Ready with Device ID", device_id);
       this.deviceId = device_id;
+      this.resolveReady(undefined);
     });
     // Not Ready
     player.addListener("not_ready", ({ device_id }: { device_id: string }) => {
@@ -201,6 +207,12 @@ class SpotifyPlayer {
   }
 
   public async play(song: PlayTrackRequest) {
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(), 5000);
+    });
+    await this.readyPromise;
+    await Promise.race([this.readyPromise, timeoutPromise]);
+
     if (!this.deviceId) {
       return;
     }
@@ -556,7 +568,6 @@ async function getTopItems(): Promise<SearchAllResult> {
 
 const spotifyPlayer = new SpotifyPlayer();
 const setMethods = () => {
-  spotifyPlayer.loadScript();
   application.onSearchAll = searchAll;
   application.onGetAlbumTracks = getAlbumTracks;
   application.onGetArtistAlbums = getArtistAlbums;
@@ -571,6 +582,7 @@ const setMethods = () => {
   application.onResume = spotifyPlayer.resume.bind(spotifyPlayer);
   application.onSeek = spotifyPlayer.seek.bind(spotifyPlayer);
   application.onSetVolume = spotifyPlayer.setVolume.bind(spotifyPlayer);
+  spotifyPlayer.loadScript();
 };
 
 const init = () => {
