@@ -210,7 +210,6 @@ class SpotifyPlayer {
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(), 5000);
     });
-    await this.readyPromise;
     await Promise.race([this.readyPromise, timeoutPromise]);
 
     if (!this.deviceId) {
