@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@types/spotify-web-playback-sdk": "^0.1.15",
-    "@infogata/audiogata-plugin-typings": "1.0.3",
+    "@infogata/audiogata-plugin-typings": "1.6.0",
     "parcel": "^2.5.0",
     "process": "^0.11.10",
     "typescript": "^4.2.3"

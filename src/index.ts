@@ -473,12 +473,26 @@ async function getArtistAlbums(
 
 async function getPlaylistTracks(
   request: PlaylistTrackRequest
-): Promise<SearchTrackResult> {
+): Promise<PlaylistTracksResult> {
+  const detailsUrl = `https://api.spotify.com/v1/playlists/${request.apiId}`;
+  const detailsResult = await http.get<SpotifyApi.SinglePlaylistResponse>(
+    detailsUrl
+  );
+  const playlistInfo: PlaylistInfo = {
+    name: detailsResult.data.name,
+    images: detailsResult.data.images.map(
+      (i): ImageInfo => ({
+        width: i.width || 0,
+        height: i.height || 0,
+        url: i.url,
+      })
+    ),
+    apiId: detailsResult.data.id,
+  };
+
   const limit = 50;
   let offset = 0;
-  let url = `https://api.spotify.com/v1/playlists/${
-    request.apiId
-  }/tracks?limit=${50}`;
+  let url = `${detailsUrl}/tracks?limit=${limit}`;
   if (request.pageInfo?.nextPage) {
     url = request.pageInfo.nextPage;
   } else if (request.pageInfo?.prevPage) {
@@ -517,7 +531,8 @@ async function getPlaylistTracks(
     }
   }
 
-  const response: SearchTrackResult = {
+  const response: PlaylistTracksResult = {
+    playlist: playlistInfo,
     items: allTracks,
   };
   return response;
@@ -565,6 +580,26 @@ async function getTopItems(): Promise<SearchAllResult> {
   };
 }
 
+const playlistListRegex =
+  /https?:\/\/(?:play|open)\.spotify\.[^\/]+\/(playlist)\/([^\/\?]+)/;
+async function importPlaylist(url: string): Promise<Playlist> {
+  const match = url.match(playlistListRegex);
+
+  if (match) {
+    const playlistId = match[2];
+    const playlistResponse = await getPlaylistTracks({
+      apiId: playlistId,
+      isUserPlaylist: false,
+    });
+    const playlist: Playlist = {
+      ...playlistResponse.playlist,
+      tracks: playlistResponse.items,
+    };
+    return playlist;
+  }
+  throw new Error("Can't retreive playlist");
+}
+
 const spotifyPlayer = new SpotifyPlayer();
 const setMethods = () => {
   application.onSearchAll = searchAll;
@@ -576,6 +611,15 @@ const setMethods = () => {
   application.onSearchAlbums = searchAlbums;
   application.onGetUserPlaylists = getUserPlaylists;
   application.onGetTopItems = getTopItems;
+  application.onCanParseUrl = async (url: string, type: ParseUrlType) => {
+    switch (type) {
+      case "playlist":
+        return playlistListRegex.test(url);
+      default:
+        return false;
+    }
+  };
+  application.onLookupPlaylistUrl = importPlaylist;
   application.onPlay = spotifyPlayer.play.bind(spotifyPlayer);
   application.onPause = spotifyPlayer.pause.bind(spotifyPlayer);
   application.onResume = spotifyPlayer.resume.bind(spotifyPlayer);
