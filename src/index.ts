@@ -80,6 +80,12 @@ function trackResultToSong(
       apiId: r.uri,
       artistApiId: r.artists[0].uri,
       artistName: r.artists[0].name,
+      addtionalArtists: r.artists.slice(1).map(
+        (a): ArtistInfo => ({
+          name: a.name,
+          apiId: a.uri,
+        })
+      ),
       duration: r.duration_ms / 1000,
       images: "album" in r ? (r.album.images as ImageInfo[]) : [],
       name: r.name,
@@ -107,6 +113,12 @@ function albumResultToAlbum(
       apiId: r.uri,
       artistName: r.artists[0].name,
       artistApiId: r.artists[0].id,
+      addtionalArtists: r.artists.slice(1).map(
+        (a): ArtistInfo => ({
+          name: a.name,
+          apiId: a.id,
+        })
+      ),
       name: r.name,
       images: r.images as ImageInfo[],
     })
@@ -433,6 +445,12 @@ async function getAlbumTracks(
       name: data.name,
       artistName: data.artists[0].name,
       artistApiId: data.artists[0].id,
+      addtionalArtists: data.artists.slice(1).map(
+        (a): ArtistInfo => ({
+          name: a.name,
+          apiId: a.id,
+        })
+      ),
       apiId: data.id,
       images: data.images as ImageInfo[],
     },
@@ -512,6 +530,12 @@ async function getPlaylistTracks(
         apiId: t.track?.uri,
         artistName: t.track?.artists[0].name,
         artistApiId: t.track?.artists[0].uri,
+        addtionalArtists: t.track?.artists.slice(1).map(
+          (a): ArtistInfo => ({
+            name: a.name,
+            apiId: a.uri,
+          })
+        ),
         duration: (t.track?.duration_ms || 0) / 1000,
         images:
           t.track?.album.images.map(
