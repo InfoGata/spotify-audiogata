@@ -566,6 +566,11 @@ async function getUserPlaylists(
   request: UserPlaylistRequest
 ): Promise<SearchPlaylistResult> {
   let url = "https://api.spotify.com/v1/me/playlists";
+  if (request.pageInfo?.nextPage) {
+    url = request.pageInfo.nextPage;
+  } else if (request.pageInfo?.prevPage) {
+    url = request.pageInfo.prevPage;
+  }
   const result = await http.get<SpotifyApi.ListOfCurrentUsersPlaylistsResponse>(
     url
   );
