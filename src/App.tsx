@@ -99,7 +99,8 @@ const App: FunctionalComponent = () => {
     const stateStr = JSON.stringify(state);
     const codeVerifier = generateRandomString();
     const codeChallenge = await pkceChallengeFromVerifier(codeVerifier);
-    const scopes = "streaming user-read-email user-read-private user-top-read";
+    const scopes =
+      "streaming user-read-email user-read-private user-top-read playlist-read-private";
     const url = new URL(authorizeUrl);
     url.searchParams.append("response_type", "code");
     url.searchParams.append("client_id", clientId);
