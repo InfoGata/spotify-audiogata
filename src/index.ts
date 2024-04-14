@@ -711,4 +711,11 @@ const onUiMessage = async (message: UiMessageType) => {
 
 application.onUiMessage = onUiMessage;
 
+const changeTheme = (theme: Theme) => {
+  localStorage.setItem("kb-color-mode", theme);
+};
+application.onChangeTheme = async (theme: Theme) => {
+  changeTheme(theme);
+};
+
 init();

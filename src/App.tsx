@@ -1,8 +1,8 @@
-import { Box, Button, CssBaseline, TextField, Typography } from "@mui/material";
 import axios from "axios";
-import { FunctionalComponent } from "preact";
-import { useState, useEffect } from "preact/hooks";
 import { MessageType, TOKEN_URL, UiMessageType } from "./shared";
+import { Button } from "./components/ui/button";
+import { createSignal } from "solid-js";
+import { Input } from "./components/ui/input";
 
 function generateRandomString() {
   var array = new Uint32Array(28);
@@ -41,14 +41,14 @@ const sendMessage = (message: UiMessageType) => {
 
 const authorizeUrl = "https://accounts.spotify.com/authorize";
 const redirectPath = "/login_popup.html";
-const App: FunctionalComponent = () => {
-  const [isSignedIn, setIsSignedIn] = useState(false);
-  const [redirectUri, setRedirectUri] = useState("");
-  const [clientId, setClientId] = useState("");
-  const [pluginId, setPluginId] = useState("");
-  const [hasClientId, setHasClientId] = useState(false);
+const App = () => {
+  const [isSignedIn, setIsSignedIn] = createSignal(false);
+  const [redirectUri, setRedirectUri] = createSignal("");
+  const [clientId, setClientId] = createSignal("");
+  const [pluginId, setPluginId] = createSignal("");
+  const [hasClientId, setHasClientId] = createSignal(false);
 
-  useEffect(() => {
+  createSignal(() => {
     const onMessage = (event: MessageEvent<MessageType>) => {
       switch (event.data.type) {
         case "info":
@@ -71,7 +71,7 @@ const App: FunctionalComponent = () => {
     sendMessage({ type: "check-login" });
     window.addEventListener("message", onMessage);
     () => window.removeEventListener("message", onMessage);
-  }, []);
+  });
 
   async function getToken(url: URL, savedState: string, codeVerifier: string) {
     const code = url.searchParams.get("code") || "";
@@ -83,8 +83,8 @@ const App: FunctionalComponent = () => {
     const params = new URLSearchParams();
     params.append("grant_type", "authorization_code");
     params.append("code", code);
-    params.append("client_id", clientId);
-    params.append("redirect_uri", redirectUri);
+    params.append("client_id", clientId());
+    params.append("redirect_uri", redirectUri());
     params.append("code_verifier", codeVerifier);
     const result = await axios.post(TOKEN_URL, params, {
       headers: {
@@ -103,10 +103,10 @@ const App: FunctionalComponent = () => {
       "streaming user-read-email user-read-private user-top-read playlist-read-private";
     const url = new URL(authorizeUrl);
     url.searchParams.append("response_type", "code");
-    url.searchParams.append("client_id", clientId);
+    url.searchParams.append("client_id", clientId());
     url.searchParams.append("scope", scopes);
     url.searchParams.append("state", stateStr);
-    url.searchParams.append("redirect_uri", redirectUri);
+    url.searchParams.append("redirect_uri", redirectUri());
     url.searchParams.append("code_challenge", codeChallenge);
     url.searchParams.append("code_challenge_method", "S256");
     const newWindow = window.open(url);
@@ -145,44 +145,37 @@ const App: FunctionalComponent = () => {
     setHasClientId(!!clientId);
     sendMessage({
       type: "set-keys",
-      clientId: clientId,
+      clientId: clientId(),
     });
   };
 
   const saveButtonText = "Save Client ID";
 
   return (
-    <Box
-      sx={{ display: "flex", "& .MuiTextField-root": { m: 1, width: "25ch" } }}
-    >
-      <CssBaseline />
-      {isSignedIn ? (
+    <div class="flex">
+      {isSignedIn() ? (
         <div>
-          <Button variant="contained" onClick={onLogout}>
-            Logout
-          </Button>
+          <Button onClick={onLogout}>Logout</Button>
         </div>
       ) : (
         <div>
-          <Button variant="contained" onClick={onLogin} disabled={!hasClientId}>
+          <Button onClick={onLogin} disabled={!hasClientId}>
             Login
           </Button>
           <div>
-            <TextField
-              label="Client ID"
-              value={clientId}
+            <Input
+              placeholder="Client ID"
+              value={clientId()}
               onChange={(e) => {
                 const value = e.currentTarget.value;
                 setClientId(value);
               }}
             />
             <div>
-              <Button variant="contained" onClick={onSaveClientId}>
-                {saveButtonText}
-              </Button>
+              <Button onClick={onSaveClientId}>{saveButtonText}</Button>
             </div>
           </div>
-          <Typography>Instructions:</Typography>
+          <p>Instructions:</p>
           <ol>
             <li>
               Browse to{" "}
@@ -200,7 +193,7 @@ const App: FunctionalComponent = () => {
               the checkboxes.
             </li>
             <li>After creation, Click "Edit Settings"</li>
-            <li>Add {redirectUri} to Redirect URIs and Save</li>
+            <li>Add {redirectUri()} to Redirect URIs and Save</li>
             <li>Find "Client ID"</li>
             <li>
               Copy "Client ID" and insert into Client ID into Text field above
@@ -209,7 +202,7 @@ const App: FunctionalComponent = () => {
           </ol>
         </div>
       )}
-    </Box>
+    </div>
   );
 };
 
