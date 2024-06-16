@@ -602,10 +602,14 @@ async function getUserPlaylists(
 }
 
 async function getTopItems(): Promise<SearchAllResult> {
-  const url = "https://api.spotify.com/v1/me/top/tracks";
-  const result = await http.get<SpotifyApi.UsersTopTracksResponse>(url);
+  const tracksUrl = "https://api.spotify.com/v1/me/top/tracks";
+  const artistsUrl = "https://api.spotify.com/v1/me/top/artists";
+  const tracksRequest = http.get<SpotifyApi.UsersTopTracksResponse>(tracksUrl);
+  const artistsRequest = http.get<SpotifyApi.UsersTopArtistsResponse>(artistsUrl);
+  const result = await Promise.all([tracksRequest, artistsRequest]);
   return {
-    tracks: { items: trackResultToSong(result.data.items) },
+    tracks: { items: trackResultToSong(result[0].data.items) },
+    artists: {items: artistResultToArtist(result[1].data.items)}
   };
 }
 

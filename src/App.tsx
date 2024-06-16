@@ -1,7 +1,7 @@
 import axios from "axios";
 import { MessageType, TOKEN_URL, UiMessageType } from "./shared";
 import { Button } from "./components/ui/button";
-import { createSignal } from "solid-js";
+import { createEffect, createSignal } from "solid-js";
 import { Input } from "./components/ui/input";
 
 function generateRandomString() {
@@ -48,7 +48,7 @@ const App = () => {
   const [pluginId, setPluginId] = createSignal("");
   const [hasClientId, setHasClientId] = createSignal(false);
 
-  createSignal(() => {
+  createEffect(() => {
     const onMessage = (event: MessageEvent<MessageType>) => {
       switch (event.data.type) {
         case "info":
