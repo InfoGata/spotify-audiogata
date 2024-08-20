@@ -661,12 +661,14 @@ const setMethods = () => {
   spotifyPlayer.loadScript();
 };
 
-const init = () => {
+const init = async () => {
   const accessToken = localStorage.getItem("access_token");
   const refreshToken = localStorage.getItem("refresh_token");
   if (accessToken && refreshToken) {
     setMethods();
   }
+  const theme = await application.getTheme();
+  changeTheme(theme);
 };
 
 application.onDeepLinkMessage = async (message: string) => {
