@@ -46,7 +46,6 @@ const App = () => {
   const [redirectUri, setRedirectUri] = createSignal("");
   const [clientId, setClientId] = createSignal("");
   const [pluginId, setPluginId] = createSignal("");
-  const [hasClientId, setHasClientId] = createSignal(false);
 
   createEffect(() => {
     const onMessage = (event: MessageEvent<MessageType>) => {
@@ -55,9 +54,6 @@ const App = () => {
           setRedirectUri(event.data.origin + redirectPath);
           setPluginId(event.data.pluginId);
           setClientId(event.data.clientId);
-          if (event.data.clientId) {
-            setHasClientId(true);
-          }
           break;
         case "login":
           setIsSignedIn(true);
@@ -142,7 +138,6 @@ const App = () => {
   };
 
   const onSaveClientId = () => {
-    setHasClientId(!!clientId);
     sendMessage({
       type: "set-keys",
       clientId: clientId(),
@@ -159,7 +154,7 @@ const App = () => {
         </div>
       ) : (
         <div>
-          <Button onClick={onLogin} disabled={!hasClientId}>
+          <Button onClick={onLogin} disabled={!clientId()}>
             Login
           </Button>
           <div>
@@ -192,7 +187,7 @@ const App = () => {
               Pick an "App name" and "App description" of your choice and mark
               the checkboxes.
             </li>
-            <li>After creation, Click "Edit Settings"</li>
+            <li>After creation, Click "Settings"</li>
             <li>Add {redirectUri()} to Redirect URIs and Save</li>
             <li>Find "Client ID"</li>
             <li>
