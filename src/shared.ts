@@ -34,3 +34,8 @@ type InfoType = {
 };
 
 export type MessageType = LoginType | InfoType;
+
+export type TokenResponse = {
+  access_token: string;
+  refresh_token: string;
+};

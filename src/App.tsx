@@ -1,5 +1,5 @@
-import axios from "axios";
-import { MessageType, TOKEN_URL, UiMessageType } from "./shared";
+import ky from "ky";
+import { MessageType, TOKEN_URL, TokenResponse, UiMessageType } from "./shared";
 import { Button } from "./components/ui/button";
 import { createEffect, createSignal } from "solid-js";
 import { Input } from "./components/ui/input";
@@ -82,12 +82,13 @@ const App = () => {
     params.append("client_id", clientId());
     params.append("redirect_uri", redirectUri());
     params.append("code_verifier", codeVerifier);
-    const result = await axios.post(TOKEN_URL, params, {
+    const result = await ky.post<TokenResponse>(TOKEN_URL, {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-    });
-    return result.data;
+      body: params.toString(),
+    }).json();
+    return result;
   }
 
   const pkce = async () => {
@@ -110,6 +111,9 @@ const App = () => {
       const url = new URL(returnUrl);
       newWindow?.close();
       const result = await getToken(url, stateStr, codeVerifier);
+      if (!result) {
+        return;
+      }
       sendMessage({
         type: "login",
         accessToken: result.access_token,

@@ -1,8 +1,7 @@
-import axios from "axios";
-import { MessageType, TOKEN_URL, UiMessageType } from "./shared";
+import ky from "ky";
+import { MessageType, TOKEN_URL, TokenResponse, UiMessageType } from "./shared";
 
 const apiUrl = "https://api.spotify.com/v1";
-const http = axios.create();
 
 const getClientId = () => {
   return localStorage.getItem("clientId") || "";
@@ -19,6 +18,24 @@ const setTokens = (accessToken: string, refreshToken?: string) => {
   }
 };
 
+const http = ky.create({
+  hooks: {
+    beforeRequest: [
+      (request) => {
+        request.headers.set("Authorization", `Bearer ${localStorage.getItem("access_token")}`);
+      },
+    ],
+    afterResponse: [
+      async (request, options, response) => {
+        if (response.status === 401) {
+          const accessToken = await refreshToken();
+          request.headers.set("Authorization", `Bearer ${accessToken}`);
+          return http(request, options);
+        }
+      },
+    ],
+  },
+});
 const refreshToken = async () => {
   const refreshToken = localStorage.getItem("refresh_token");
   if (!refreshToken) return;
@@ -28,48 +45,21 @@ const refreshToken = async () => {
     params.append("grant_type", "refresh_token");
     params.append("refresh_token", refreshToken);
     params.append("client_id", getClientId());
-    const result = await axios.post(TOKEN_URL, params, {
+    const result = await ky.post<TokenResponse>(TOKEN_URL, {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-    });
-    if (result.data.access_token && result.data.refresh_token) {
-      setTokens(result.data.access_token, result.data.refresh_token);
-      return result.data.access_token as string;
+      body: params,
+    }).json();
+    if (result.access_token && result.refresh_token) {
+      setTokens(result.access_token, result.refresh_token);
+      return result.access_token;
     }
   } catch {
     const token = localStorage.getItem("access_token");
     return token;
   }
 };
-
-http.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers["Authorization"] = "Bearer " + token;
-    }
-    return config;
-  },
-  (error) => {
-    Promise.reject(error);
-  }
-);
-
-http.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  async (error) => {
-    const originalRequest = error.config;
-    if (error.response.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      const accessToken = await refreshToken();
-      axios.defaults.headers.common["Authorization"] = "Bearer " + accessToken;
-      return http(originalRequest);
-    }
-  }
-);
 
 function trackResultToSong(
   results: (SpotifyApi.TrackObjectFull | SpotifyApi.TrackObjectSimplified)[]
@@ -233,15 +223,14 @@ class SpotifyPlayer {
     await http.put(
       url,
       {
-        uris: [trackId],
-        position_ms: (song.seekTime ?? 0) * 1000,
-      },
-      {
+        json: {
+          uris: [trackId],
+          position_ms: (song.seekTime ?? 0) * 1000,
+        },
         headers: {
           "Content-Type": "application/json",
         },
-      }
-    );
+      });
   }
 
   public async pause() {
@@ -308,8 +297,7 @@ async function searchAll(request: SearchRequest): Promise<SearchAllResult> {
   const url = `${apiUrl}/search?q=${encodeURIComponent(
     request.query
   )}&type=album,artist,track`;
-  const results = await http.get<SpotifyApi.SearchResponse>(url);
-  const data = results.data;
+  const data = await http.get<SpotifyApi.SearchResponse>(url).json();
 
   const tracks = trackResultToSong(data.tracks?.items || []);
   const albums = albumResultToAlbum(data.albums?.items || []);
@@ -362,8 +350,7 @@ async function searchTracks(
   } else if (request.pageInfo?.prevPage) {
     url = request.pageInfo.prevPage;
   }
-  const results = await http.get<SpotifyApi.SearchResponse>(url);
-  const data = results.data;
+  const data = await http.get<SpotifyApi.SearchResponse>(url).json();
   const tracks = trackResultToSong(data.tracks?.items || []);
   return {
     items: tracks,
@@ -387,8 +374,7 @@ async function searchAlbums(
   } else if (request.pageInfo?.prevPage) {
     url = request.pageInfo.prevPage;
   }
-  const results = await http.get<SpotifyApi.SearchResponse>(url);
-  const data = results.data;
+  const data = await http.get<SpotifyApi.SearchResponse>(url).json();
   const albums = albumResultToAlbum(data.albums?.items || []);
   return {
     items: albums,
@@ -412,8 +398,7 @@ async function searchArtists(
   } else if (request.pageInfo?.prevPage) {
     url = request.pageInfo.prevPage;
   }
-  const results = await http.get<SpotifyApi.SearchResponse>(url);
-  const data = results.data;
+  const data = await http.get<SpotifyApi.SearchResponse>(url).json();
   const artists = artistResultToArtist(data.artists?.items || []);
   return {
     items: artists,
@@ -433,13 +418,12 @@ async function getAlbumTracks(
   const id = request.apiId?.split(":").pop();
   const url = `${apiUrl}/albums/${id}`;
 
-  const results = await http.get<SpotifyApi.SingleAlbumResponse>(url);
-  const tracks = trackResultToSong(results.data.tracks.items);
+  const data = await http.get<SpotifyApi.SingleAlbumResponse>(url).json();
+  const tracks = trackResultToSong(data.tracks.items);
   tracks.forEach((t) => {
     t.albumApiId = request.apiId;
-    t.images = results.data.images as ImageInfo[];
+    t.images = data.images as ImageInfo[];
   });
-  const data = results.data;
   return {
     album: {
       name: data.name,
@@ -469,11 +453,10 @@ async function getArtistAlbums(
   } else if (request.pageInfo?.prevPage) {
     url = request.pageInfo.prevPage;
   }
-  const detailsResult = await http.get<SpotifyApi.ArtistObjectFull>(detailsUrl);
-  const results = await http.get<SpotifyApi.ArtistsAlbumsResponse>(url);
-  const data = results.data;
+  const detailsResult = await http.get<SpotifyApi.ArtistObjectFull>(detailsUrl).json();
+  const data = await http.get<SpotifyApi.ArtistsAlbumsResponse>(url).json();
   return {
-    items: albumResultToAlbum(results.data.items),
+    items: albumResultToAlbum(data.items),
     pageInfo: {
       resultsPerPage: data.limit,
       totalResults: data.total,
@@ -482,9 +465,9 @@ async function getArtistAlbums(
       prevPage: data.previous || undefined,
     },
     artist: {
-      name: detailsResult.data.name,
-      apiId: detailsResult.data.id,
-      images: detailsResult.data.images as ImageInfo[],
+      name: detailsResult.name,
+      apiId: detailsResult.id,
+      images: detailsResult.images as ImageInfo[],
     },
   };
 }
@@ -495,17 +478,17 @@ async function getPlaylistTracks(
   const detailsUrl = `https://api.spotify.com/v1/playlists/${request.apiId}`;
   const detailsResult = await http.get<SpotifyApi.SinglePlaylistResponse>(
     detailsUrl
-  );
+  ).json();
   const playlistInfo: PlaylistInfo = {
-    name: detailsResult.data.name,
-    images: detailsResult.data.images.map(
+    name: detailsResult.name,
+    images: detailsResult.images.map(
       (i): ImageInfo => ({
         width: i.width || 0,
         height: i.height || 0,
         url: i.url,
       })
     ),
-    apiId: detailsResult.data.id,
+    apiId: detailsResult.id,
   };
 
   const limit = 50;
@@ -523,8 +506,8 @@ async function getPlaylistTracks(
   while (more) {
     const result = await http.get<SpotifyApi.PlaylistTrackResponse>(
       `${url}&offset=${offset}`
-    );
-    const tracks: Track[] = result.data.items.map(
+    ).json();
+    const tracks: Track[] = result.items.map(
       (t): Track => ({
         albumApiId: t.track?.album && t.track.album.uri,
         apiId: t.track?.uri,
@@ -550,7 +533,7 @@ async function getPlaylistTracks(
     );
     allTracks = allTracks.concat(tracks);
     offset += limit;
-    if (!result.data.next) {
+    if (!result.next) {
       more = false;
     }
   }
@@ -573,9 +556,9 @@ async function getUserPlaylists(
   }
   const result = await http.get<SpotifyApi.ListOfCurrentUsersPlaylistsResponse>(
     url
-  );
+  ).json();
 
-  const playlists: PlaylistInfo[] = result.data.items.map(
+  const playlists: PlaylistInfo[] = result.items.map(
     (i): PlaylistInfo => ({
       name: i.name,
       images: i.images.map(
@@ -591,11 +574,11 @@ async function getUserPlaylists(
   const response: SearchPlaylistResult = {
     items: playlists,
     pageInfo: {
-      resultsPerPage: result.data.limit,
-      offset: result.data.offset,
-      totalResults: result.data.total,
-      nextPage: result.data.next || undefined,
-      prevPage: result.data.previous || undefined,
+      resultsPerPage: result.limit,
+      offset: result.offset,
+      totalResults: result.total,
+      nextPage: result.next || undefined,
+      prevPage: result.previous || undefined,
     },
   };
   return response;
@@ -604,12 +587,12 @@ async function getUserPlaylists(
 async function getTopItems(): Promise<SearchAllResult> {
   const tracksUrl = "https://api.spotify.com/v1/me/top/tracks";
   const artistsUrl = "https://api.spotify.com/v1/me/top/artists";
-  const tracksRequest = http.get<SpotifyApi.UsersTopTracksResponse>(tracksUrl);
-  const artistsRequest = http.get<SpotifyApi.UsersTopArtistsResponse>(artistsUrl);
+  const tracksRequest = http.get<SpotifyApi.UsersTopTracksResponse>(tracksUrl).json();
+  const artistsRequest = http.get<SpotifyApi.UsersTopArtistsResponse>(artistsUrl).json();
   const result = await Promise.all([tracksRequest, artistsRequest]);
   return {
-    tracks: { items: trackResultToSong(result[0].data.items) },
-    artists: {items: artistResultToArtist(result[1].data.items)}
+    tracks: { items: trackResultToSong(result[0].items) },
+    artists: {items: artistResultToArtist(result[1].items)}
   };
 }
 
