@@ -1,7 +1,7 @@
 import ky from "ky";
 import { MessageType, TOKEN_URL, TokenResponse, UiMessageType } from "./shared";
 import { Button } from "./components/ui/button";
-import { createEffect, createSignal } from "solid-js";
+import { useState, useEffect } from "preact/hooks";
 import { Input } from "./components/ui/input";
 
 function generateRandomString() {
@@ -41,13 +41,14 @@ const sendMessage = (message: UiMessageType) => {
 
 const authorizeUrl = "https://accounts.spotify.com/authorize";
 const redirectPath = "/login_popup.html";
-const App = () => {
-  const [isSignedIn, setIsSignedIn] = createSignal(false);
-  const [redirectUri, setRedirectUri] = createSignal("");
-  const [clientId, setClientId] = createSignal("");
-  const [pluginId, setPluginId] = createSignal("");
 
-  createEffect(() => {
+const App = () => {
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [redirectUri, setRedirectUri] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [pluginId, setPluginId] = useState("");
+
+  useEffect(() => {
     const onMessage = (event: MessageEvent<MessageType>) => {
       switch (event.data.type) {
         case "info":
@@ -66,8 +67,8 @@ const App = () => {
 
     sendMessage({ type: "check-login" });
     window.addEventListener("message", onMessage);
-    () => window.removeEventListener("message", onMessage);
-  });
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
 
   async function getToken(url: URL, savedState: string, codeVerifier: string) {
     const code = url.searchParams.get("code") || "";
@@ -79,8 +80,8 @@ const App = () => {
     const params = new URLSearchParams();
     params.append("grant_type", "authorization_code");
     params.append("code", code);
-    params.append("client_id", clientId());
-    params.append("redirect_uri", redirectUri());
+    params.append("client_id", clientId);
+    params.append("redirect_uri", redirectUri);
     params.append("code_verifier", codeVerifier);
     const result = await ky.post<TokenResponse>(TOKEN_URL, {
       headers: {
@@ -100,10 +101,10 @@ const App = () => {
       "streaming user-read-email user-read-private user-top-read playlist-read-private";
     const url = new URL(authorizeUrl);
     url.searchParams.append("response_type", "code");
-    url.searchParams.append("client_id", clientId());
+    url.searchParams.append("client_id", clientId);
     url.searchParams.append("scope", scopes);
     url.searchParams.append("state", stateStr);
-    url.searchParams.append("redirect_uri", redirectUri());
+    url.searchParams.append("redirect_uri", redirectUri);
     url.searchParams.append("code_challenge", codeChallenge);
     url.searchParams.append("code_challenge_method", "S256");
     const newWindow = window.open(url);
@@ -144,29 +145,29 @@ const App = () => {
   const onSaveClientId = () => {
     sendMessage({
       type: "set-keys",
-      clientId: clientId(),
+      clientId: clientId,
     });
   };
 
   const saveButtonText = "Save Client ID";
 
   return (
-    <div class="flex">
-      {isSignedIn() ? (
+    <div className="flex">
+      {isSignedIn ? (
         <div>
           <Button onClick={onLogout}>Logout</Button>
         </div>
       ) : (
         <div>
-          <Button onClick={onLogin} disabled={!clientId()}>
+          <Button onClick={onLogin} disabled={!clientId}>
             Login
           </Button>
           <div>
             <Input
               placeholder="Client ID"
-              value={clientId()}
-              onChange={(e) => {
-                const value = e.currentTarget.value;
+              value={clientId}
+              onChange={(e: any) => {
+                const value = (e.target as HTMLInputElement).value;
                 setClientId(value);
               }}
             />
@@ -192,7 +193,7 @@ const App = () => {
               the checkboxes.
             </li>
             <li>After creation, Click "Settings"</li>
-            <li>Add {redirectUri()} to Redirect URIs and Save</li>
+            <li>Add {redirectUri} to Redirect URIs and Save</li>
             <li>Find "Client ID"</li>
             <li>
               Copy "Client ID" and insert into Client ID into Text field above

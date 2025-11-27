@@ -596,6 +596,26 @@ async function getTopItems(): Promise<SearchAllResult> {
   };
 }
 
+async function getArtistTopTracks(
+  request: ArtistTopTracksRequest
+): Promise<ArtistTopTracksResult> {
+  const id = request.apiId?.split(":").pop();
+  const detailsUrl = `${apiUrl}/artists/${id}`;
+  const tracksUrl = `${apiUrl}/artists/${id}/top-tracks`;
+  
+  const detailsResult = await http.get<SpotifyApi.ArtistObjectFull>(detailsUrl).json();
+  const data = await http.get<SpotifyApi.ArtistsTopTracksResponse>(tracksUrl).json();
+  
+  return {
+    items: trackResultToSong(data.tracks),
+    artist: {
+      name: detailsResult.name,
+      apiId: detailsResult.id,
+      images: detailsResult.images as ImageInfo[],
+    },
+  };
+}
+
 const playlistListRegex =
   /https?:\/\/(?:play|open)\.spotify\.[^\/]+\/(playlist)\/([^\/\?]+)/;
 async function importPlaylist(url: string): Promise<Playlist> {
@@ -627,6 +647,7 @@ const setMethods = () => {
   application.onSearchAlbums = searchAlbums;
   application.onGetUserPlaylists = getUserPlaylists;
   application.onGetTopItems = getTopItems;
+  application.onGetArtistTopTracks = getArtistTopTracks;
   application.onCanParseUrl = async (url: string, type: ParseUrlType) => {
     switch (type) {
       case "playlist":
@@ -701,7 +722,7 @@ const onUiMessage = async (message: UiMessageType) => {
 application.onUiMessage = onUiMessage;
 
 const changeTheme = (theme: Theme) => {
-  localStorage.setItem("kb-color-mode", theme);
+  localStorage.setItem("vite-ui-theme", theme);
 };
 application.onChangeTheme = async (theme: Theme) => {
   changeTheme(theme);
