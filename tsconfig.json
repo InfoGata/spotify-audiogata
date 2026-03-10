@@ -18,7 +18,7 @@
       "react": ["./node_modules/preact/compat/"],
       "react-dom": ["./node_modules/preact/compat/"]
     },
-    "types": ["@infogata/audiogata-plugin-typings"]
+    "types": ["@infogata/audiogata-plugin-typings", "spotify-api", "spotify-web-playback-sdk"]
   },
   "include": [
     "src/**/*"
